@@ -1,27 +1,31 @@
+# Standard Libraries
 import re
 import datetime
+import time
+import warnings
+from collections import OrderedDict
+from typing import List, Dict, Optional, Tuple
+from copy import deepcopy as copy
+
+# Third-Party Libraries
 import numpy as np
 import pandas as pd
-import time
-from collections import OrderedDict
-from typing import List, Dict
-from copy import deepcopy as copy
-import warnings
-import concurrent
-from IPython.display import display
-
-import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from IPython.display import display
 
+# Local Libraries
 from construct_machineIO import Evaluator, construct_machineIO
 from machine_portal_helper import get_MPelem_from_PVnames
 from utils import calculate_Brho, calculate_betagamma, get_Dnum_from_pv, sort_by_Dnum, calculate_mismatch_factor
 
 
+# Ignore specific user warnings for tensor copying
 warnings.filterwarnings("ignore", category=UserWarning, message="To copy construct from a tensor")
+
+# Type Definitions
 _dtype = torch.float32
-    
+
 _E_MeV_u = 130
 _mass_number = 18
 _charge_number = 8
@@ -32,6 +36,7 @@ _types = {'quadrupole':['QUAD','quad','quadrupole','Qaudrupole'],
 _xalpha,_xbeta,_xnemit = 0.0, 4.0, 0.15*1e-6
 _yalpha,_ybeta,_ynemit = 0.0, 4.0, 0.15*1e-6
 _cs_ref = [_xalpha,_xbeta,_xnemit,_yalpha,_ybeta,_ynemit]
+
 
 _BPM_TIS161_coeffs = OrderedDict([
     ("FE_MEBT:BPM_D1056", np.array([32287, 32731, 27173, 27715])),
@@ -243,29 +248,29 @@ BDS_dicts_f5501_t5567 = [
 
 
 def noise2cs(
-    noise,
-    xalpha=_xalpha, xbeta=_xbeta, xnemit=_xnemit,
-    yalpha=_yalpha, ybeta=_ybeta, ynemit=_ynemit,
-    ):
-    # Separate noise into components
+    noise: torch.Tensor,
+    xalpha: float = _xalpha, xbeta: float = _xbeta, xnemit: float = _xnemit,
+    yalpha: float = _yalpha, ybeta: float = _ybeta, ynemit: float = _ynemit
+) -> torch.Tensor:
+    """
+    Convert batch of noise values into Twiss parameters (cs).
+    """
     x0, x1, x2, x3, x4, x5 = noise[:, 0], noise[:, 1], noise[:, 2], noise[:, 3], noise[:, 4], noise[:, 5]
-    # Perform operations in a vectorized manner
     xalpha_term = xalpha + 0.7 * x0
     xbeta_term = xbeta * torch.exp(x1 * 0.5)
     xnemit_term = xnemit * torch.exp(x2 * 0.2)
     yalpha_term = yalpha + 0.7 * x3
     ybeta_term = ybeta * torch.exp(x4 * 0.5)
     ynemit_term = ynemit * torch.exp(x5 * 0.2)
-    # Stack the results along the second dimension
     return torch.stack([xalpha_term, xbeta_term, xnemit_term, yalpha_term, ybeta_term, ynemit_term], dim=1)
-            
+
             
 def noise2covar(
-    noise,
-    xalpha=_xalpha, xbeta=_xbeta, xnemit=_xnemit,
-    yalpha=_yalpha, ybeta=_ybeta, ynemit=_ynemit,
-    bg=_bg
-    ):
+    noise: torch.Tensor,
+    xalpha: float = _xalpha, xbeta: float = _xbeta, xnemit: float = _xnemit,
+    yalpha: float = _yalpha, ybeta: float = _ybeta, ynemit: float = _ynemit,
+    bg: float = _bg
+) -> Tuple[torch.Tensor, torch.Tensor]:
     # Compute the cs values
     cs = noise2cs(noise, 
                   xalpha=xalpha, xbeta=xbeta, xnemit=xnemit,
@@ -333,10 +338,19 @@ def quadrupole_maps_2x2(L,B2,**kwarg):
         return M2,M1
         
         
-class Element():
-    def __init__(self,name,type,aperture,
-                 map_generator=None,
-                 **properties):
+class Element:
+    def __init__(self, name: str, type: str, aperture: float,
+                 map_generator: Callable = None, **properties):
+        """
+        Represents a lattice element (e.g., drift, quadrupole).
+
+        Args:
+            name (str): Name of the element.
+            type (str): Type of the element (e.g., 'quadrupole', 'drift').
+            aperture (float): Aperture of the element.
+            map_generator (Callable, optional): Function to generate element's map.
+            **properties: Additional properties for the element.
+        """
         self.name = name
         for t,lt in _types.items():
             if type in lt:
@@ -346,25 +360,34 @@ class Element():
         self.aperture = aperture
         self.properties = copy(properties)
 
-        if map_generator is not None:
-            self.map_generator = map_generator
-        else:
-            if self.type == 'quadrupole':
-                self.map_generator = quadrupole_maps_2x2
-            elif self.type == 'drift':
-                self.map_generator = drift_maps_2x2
+        self.map_generator = map_generator or self._default_map_generator()
         self.map = self.map_generator(**self.properties)
+        
+    def _default_map_generator(self) -> Callable:
+        """
+        Returns the default map generator for the element based on its type.
+        """
+        if self.type == 'quadrupole':
+            return quadrupole_maps_2x2
+        elif self.type == 'drift':
+            return drift_maps_2x2
+        else:
+            raise ValueError(f"Unknown element type: {self.type}")
             
     def reconfigure(self,**properties):
         self.properties.update(properties)
         self.map = self.map_generator(**self.properties)
         
         
-class LatticeMap():
-    def __init__(self,elem_dicts):
+# LatticeMap class definition
+class LatticeMap:
+    def __init__(self, elem_dicts: List[Dict]):
+        """
+        Represents a collection of elements forming a lattice.
+        """
         self.elements = [Element(**edict) for edict in elem_dicts]
     
-    def get_ifrom_ito_map(self,i_from,i_to):
+    def get_ifrom_ito_map(self, i_from: int, i_to: int) -> Tuple[torch.Tensor, torch.Tensor]:
         Mh = self.elements[i_from].map[0]  # horizontal matrix map
         Mv = self.elements[i_from].map[1]  # vertical matrix map
         for i in range(i_from+1,i_to):
@@ -372,40 +395,52 @@ class LatticeMap():
             Mv = self.elements[i].map[1]@Mv
         return Mh,Mv
     
-    def get_maps_ibtw(self,indices):
-        maps = []
-        for i in range(len(indices)-1):
-            maps.append(self.get_ifrom_ito_map(indices[i],
-                                               indices[i+1]))
-        return maps
+    def get_maps_ibtw(self, indices: List[int]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        return [self.get_ifrom_ito_map(indices[i], indices[i+1]) for i in range(len(indices) - 1)]
     
-    def get_maps_btw(self,elem_names):
-        i = 0 
-        name = elem_names[i]
-        indices = []
-        for j, elem in enumerate(self.elements):
-            if  name == elem.name:
-                indices.append(j)
-                i+=1
-                if i == len(elem_names):
-                    break
-                name = elem_names[i]
+    def get_maps_btw(self, elem_names: List[str]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        indices = [i for i, elem in enumerate(self.elements) if elem.name in elem_names]
         return self.get_maps_ibtw(indices)
         
 BDS_lattice_map_f5501_t5567 = LatticeMap(BDS_dicts_f5501_t5567)
 
 class EnvelopeEnsembleModel:
     def __init__(self,
-                 E_MeV_u, mass_number, charge_number,
+                 E_MeV_u: float,
+                 mass_number: int,
+                 charge_number: int,
                  latmap = BDS_lattice_map_f5501_t5567, 
-                 quads_to_scan = None,    # quads names for BPMQ scan. must be in order of lattice
-                 B2min = None,     # min bounds in B2 (T/m)
-                 B2max = None,     # max bounds in B2 (T/m)
-                 xcovs = None,
-                 ycovs = None,
-                 dtype = _dtype,
-                 cs_ref = _cs_ref,
-                 ):
+                 quads_to_scan: list = None,  # List of quadrupole names for scanning
+                 B2min: list = None,     # Min bounds for quadrupole strength (T/m)
+                 B2max: list = None,     # Max bounds for quadrupole strength (T/m)
+                 xcovs: torch.Tensor = None,
+                 ycovs: torch.Tensor = None,
+                 dtype  = _dtype,
+                 cs_ref =_cs_ref):                     
+        """
+        Initialize the EnvelopeEnsembleModel.
+
+        Parameters:
+        -----------
+        E_MeV_u : float
+            Energy per nucleon in MeV/u.
+        mass_number : float
+            Atomic mass number.
+        charge_number : float
+            Ion charge number.
+        latmap : object
+            Lattice map object, defaults to BDS_lattice_map_f5501_t5567.
+        quads_to_scan : list
+            Names of quadrupoles to scan. Must match the order in the lattice.
+        B2min, B2max : list
+            Min and max bounds for quadrupole strengths (T/m).
+        xcovs, ycovs : torch.Tensor
+            Beam covariance matrices in x and y directions.
+        dtype : torch.dtype
+            Data type for tensors.
+        cs_ref : list
+            Reference Courant-Snyder parameters.
+        """
         self.latmap = latmap
         self.Brho = calculate_Brho(E_MeV_u,mass_number,charge_number)
         self.bg   = calculate_betagamma(E_MeV_u,mass_number)
@@ -416,27 +451,16 @@ class EnvelopeEnsembleModel:
 
         self.dtype = dtype
         self.cs_ref = torch.tensor(cs_ref,dtype=self.dtype)
-#         assert len(quads_to_scan) == len(B2min) == len(B2max)
-#         self.B2min = torch.tensor(B2min,dtype=_dtype)
-#         self.B2max = torch.tensor(B2max,dtype=_dtype)
-        
+
         if xcovs is None:
-            xcovs, ycovs = noise2covar(torch.zeros(1,6,dtype=dtype),*cs_ref,bg=bg)
+            self.xcovs, self.ycovs = noise2covar(torch.zeros(1,6,dtype=dtype),*cs_ref,bg=bg)
         else:
-            xcovs = torch.tensor(xcovs,dtype=dtype)
-            ycovs = torch.tensor(ycovs,dtype=dtype)
-        self.xcovs = xcovs
-        self.ycovs = ycovs
-        self.quads_to_scan = []
-        self.i_quads_to_scan = []
-        self.quads = []  
-        self.i_quads = []
-        self.bpms = []
-        self.i_bpms = []
-        self.bpm_names = []
-        self.pms = []
-        self.i_pms = []
-        self.pm_names = []
+            self.xcovs = torch.tensor(xcovs,dtype=dtype)
+            self.ycovs = torch.tensor(ycovs,dtype=dtype)
+            
+        self.quads, self.i_quads = [], []
+        self.bpms, self.i_bpms, self.bpm_names = [], [], []
+        self.pms, self.i_pms, self.pm_names = [], [], []
         for i,elem in enumerate(self.latmap.elements):
             if elem.type == 'quadrupole':
                 self.quads.append(elem)
@@ -451,17 +475,17 @@ class EnvelopeEnsembleModel:
                 self.pm_names.append(elem.name)
                 
         if quads_to_scan is None:
-            self.quads_to_scan = self.quads
-            self.i_quads_to_scan = self.i_quads
+            self.quads_to_scan, self.i_quads_to_scan = self.quads, self.i_quads
         else:
+            self.quads_to_scan, self.i_quads_to_scan = [], []
             for i,elem in enumerate(self.latmap.elements):
                 if elem.type == 'quadrupole':
                     if elem.name in quads_to_scan:
                         self.quads_to_scan.append(elem)
                         self.i_quads_to_scan.append(i)
+                        
         if B2min is None:
-            B2min = []
-            B2max = []
+            B2min, B2max = [], []
             for i,iq in enumerate(self.i_quads_to_scan):
                 if self.latmap.elements[iq].properties['B2'] >= 0:
                     B2min.append(2)
@@ -499,27 +523,15 @@ class EnvelopeEnsembleModel:
         xcovs.shape = (batch_size,2,2) in ver.0.
         i_monitors : list of index (must be sorted) of lattice elements at which beam covariances will be calculated.
         '''
-#         if xcovs is None:
-#             xcovs, ycovs = self.xcovs, self.ycovs  # 
-#         if not i_monitors:
-#             raise ValueError("i_monitors cannot be None or empty")
-#         if i_monitors[0]==0
-#             l_xcovs = [xcovs]
-#             l_ycovs = [ycovs]
-#         else:
-#             i_monitors.insert(0,0)
-#             l_xcovs = []
-#             l_ycovs = []
         l_xcovs = torch.empty(len(i_monitors),*xcovs.shape,dtype=self.dtype)
         l_ycovs = torch.empty(len(i_monitors),*ycovs.shape,dtype=self.dtype)
-        nl = 0
-        if i_monitors[0]==0:
-            l_xcovs[0] = xcovs
-            l_ycovs[0] = ycovs
-            start_idx  = 1
+        
+        start_idx = 0
+        if i_monitors[0] == 0:
+            l_xcovs[0], l_ycovs[0] = xcovs, ycovs
+            start_idx = 1
         else:
             i_monitors = [0] + i_monitors
-            start_idx = 0
             
         maps = self.latmap.get_maps_ibtw(i_monitors)
         batch_size = xcovs.shape[0]
@@ -531,12 +543,13 @@ class EnvelopeEnsembleModel:
             ycovs = torch.bmm(torch.bmm(My,ycovs),My.transpose(2, 1))
             l_xcovs[start_idx + idx] = xcovs
             l_ycovs[start_idx + idx] = ycovs
-#         return torch.stack(l_xcovs,dim=0), torch.stack(l_ycovs,dim=0)
         return l_xcovs, l_ycovs
 
     def multi_reconfigure_simulate_beam_covars(self,llB2,xcovs,ycovs,i_monitors):
-        ll_xcovs = []
-        ll_ycovs = []
+        """
+        Simulate beam covariances for multiple quadrupole configurations.
+        """
+        ll_xcovs, ll_ycovs = [], []
         for lB2 in llB2:
             self.reconfigure_quadrupole_strengths(lB2)
             l_xcovs, l_ycovs = self.simulate_beam_covars(xcovs,ycovs,i_monitors)
@@ -552,13 +565,12 @@ class EnvelopeEnsembleModel:
         ynemit_target=None,
         debug=False):  
         
-        apertures = torch.tensor(
-                    [self.latmap.elements[idx].aperture for idx in i_monitors],
-                    dtype=self.dtype
-                    )
+        apertures = torch.tensor([self.latmap.elements[idx].aperture for idx in i_monitors], dtype=self.dtype)
         eval_counter = [0]
+        
         def reset_eval_counter():
             eval_counter[0] = 0
+            
         def loss_fun(noise_ensemble):
             eval_counter[0] += 1
             xcovs, ycovs = self.noise2covar(noise_ensemble)
@@ -590,14 +602,15 @@ class EnvelopeEnsembleModel:
                 cs = self.noise2cs(noise_ensemble)
                 xnemit_sim_ratio = cs[:,2]/xnemit_target
                 ynemit_sim_ratio = cs[:,5]/ynemit_target
-                emit_prior_loss = torch.relu(torch.abs(xnemit_sim_ratio-1) - 0.2)**2 + torch.relu(torch.abs(ynemit_sim_ratio-1) - 0.2)**2
+                emit_prior_loss = (torch.relu(torch.abs(xnemit_sim_ratio - 1) - 0.2)**2 +
+                                   torch.relu(torch.abs(ynemit_sim_ratio - 1) - 0.2)**2)
                 loss += emit_prior_loss
                 if debug:
                     print(f'cs_reconst, emit_prior_loss: {emit_prior_loss}')
             
 #             loss += reg_beam_loss    
             if torch.sum(loss > 100) > 0.5*len(loss):
-                raise ValueError()
+                raise ValueError("Loss exceeds threshold.")
 #             if loss.max() > 1 and eval_counter[0]>= max_iter-2:
 #                 raise ValueError() 
             return loss
@@ -605,7 +618,12 @@ class EnvelopeEnsembleModel:
         return loss_fun, reset_eval_counter
     
     def _cs_reconstruct_one_iter(self,batch_loss_func,batch_size,max_iter,num_restarts=100,debug=False):
+        """
+        Executes one iteration of the cross-section reconstruction process using L-BFGS optimization.
+        """        
         if debug:
+            num_restarts = 1
+        for _ in range(num_restarts):
             noise_ensemble = torch.randn(batch_size, 6, dtype=self.dtype, requires_grad=True)
             optimizer = torch.optim.LBFGS([noise_ensemble],lr=0.9,max_iter=max_iter)
             # Your training loop
@@ -614,27 +632,19 @@ class EnvelopeEnsembleModel:
                 loss = batch_loss_func(noise_ensemble).mean()
                 loss.backward()
                 return loss
-            optimizer.step(closure)
-            loss = closure().item()
-            noise_ensemble = noise_ensemble.detach()
-            return loss, noise_ensemble
-        
-        for i in range(num_restarts):
-            noise_ensemble = torch.randn(batch_size, 6, dtype=self.dtype, requires_grad=True)
-            optimizer = torch.optim.LBFGS([noise_ensemble],lr=0.9,max_iter=max_iter)
-            # Your training loop
-            def closure():
-                optimizer.zero_grad()
-                loss = batch_loss_func(noise_ensemble).mean()
-                loss.backward()
-                return loss
-            try:
+            if debug:
                 optimizer.step(closure)
                 loss = closure().item()
                 noise_ensemble = noise_ensemble.detach()
                 return loss, noise_ensemble
-            except:
-                continue                
+            else:
+                try:
+                    optimizer.step(closure)
+                    loss = closure().item()
+                    noise_ensemble = noise_ensemble.detach()
+                    return loss, noise_ensemble
+                except:
+                    continue
         raise ValueError(f'cs_reconstruct failed after {num_restarts} attempts')
     
     
@@ -682,6 +692,7 @@ class EnvelopeEnsembleModel:
 
         if aperture_i_monitors is None:
             aperture_i_monitors = []
+            
         if PM_i_monitors is None:
             PM_i_monitors = []
         else:
@@ -705,7 +716,7 @@ class EnvelopeEnsembleModel:
             debug = debug,
         )
 
-        loss, best_noise_ensemble = self._cs_reconstruct_one_iter(loss_func, batch_size, max_iter,debug=debug)
+        loss, best_noise_ensemble = self._cs_reconstruct_one_iter(loss_func, batch_size, max_iter, debug=debug)
 
         with torch.no_grad():
             best_losses = loss_func(best_noise_ensemble)
@@ -1023,10 +1034,7 @@ class virtual_machine_BPMQ_Evaluator:
         virtual_beamQerr = 0.0,
         ):
         self.virtual_beamQerr = virtual_beamQerr
-        if cs_ref is None:
-            self.cs_ref = torch.concat(noise2cs(torch.randn(1,6,dtype=dtype)))
-        else:
-            self.cs_ref = cs_ref
+        self.cs_ref = cs_ref if cs_ref is not None else torch.concat(noise2cs(torch.randn(1,6,dtype=dtype)))
         self.env_model = EnvelopeEnsembleModel(
             E_MeV_u, mass_number, charge_number,
             latmap=latmap,                  
@@ -1034,14 +1042,16 @@ class virtual_machine_BPMQ_Evaluator:
             B2min=B2min,
             B2max=B2max,
             xcovs=xcovs,
-            ycovs,ycovs,
-            cs_ref = cs_ref,
-            dtype=dtype,
+            ycovs=ycovs,
+            cs_ref = self.cs_ref,
+            dtype  = self.dtype,
             )
-        quads_to_scan = self.env_model.quads_to_scan
+            
+        if quads_to_scan is None:
+            quads_to_scan = [q.name for q in self.env_model.quads_to_scan]
         self.mp_quads_to_scan = get_MPelem_from_PVnames(quads_to_scan)
+
         self.BPM_names = self.env_model.bpm_names
- 
         BPM_TIS161_PVs = []      
         for i,name in enumerate(self.BPM_names):
             TIS161_PVs = [f"{name}:TISMAG161_{i + 1}_RD" for i in range(4)]
@@ -1100,25 +1110,33 @@ class virtual_machine_BPMQ_Evaluator:
                                  fetch_data_kwargs=fetch_data_kwargs)
         executor.shutdown(wait=False)
         return future
+        
+        
+    def _calculate_beamQ(self, data):
+        """
+        Calculates the beam charge (beamQ) for each BPM based on the TIS161 PVs and positional data.
+        
+        Args:
+            data: Data object to update with beamQ values.
+        """
+        for i, name in enumerate(self.BPM_names):
+            U = self.BPM_TIS161_PVs[4 * i:4 * (i + 1)]
+            Q = (data[[U[1], U[2]]].sum(axis=1) - data[[U[0], U[3]]].sum(axis=1)) / data[U].sum(axis=1)
+            data[f'{name}:Q'] = Q
+            data[f'{name}:beamQ'] = (241 * Q) - (data[f'{name}:XPOS_RD'] ** 2 - data[f'{name}:YPOS_RD'] ** 2)
     
     def get_result(self, future):
         """
         Retrieve the result from the future.
         """
         data, ramping_data = future.result()
-        for i,name in enumerate(self.BPM_names):
-            U = self.BPM_TIS161_PVs[4*i:4*(i+1)]
-            data[name+':Q'] = (data[[U[1],U[2]]].sum(axis=1) -data[[U[0],U[3]]].sum(axis=1)) / data[U].sum(axis=1)
-            data[name+':beamQ'] = (241**data[name+':Q'] - (data[name+':XPOS_RD']**2 - data[name+':YPOS_RD']**2))
-        for i,name in enumerate(self.BPM_names):
-            U = self.BPM_TIS161_PVs[4*i:4*(i+1)]
-            ramping_data[name+':Q'] = (ramping_data[[U[1],U[2]]].sum(axis=1) -ramping_data[[U[0],U[3]]].sum(axis=1)) / ramping_data[U].sum(axis=1)
-            ramping_data[name+':beamQ'] = (241*ramping_data[name+':Q'] - (ramping_data[name+':XPOS_RD']**2 - ramping_data[name+':YPOS_RD']**2))
+        self._calculate_beamQ(data)
+        self._calculate_beamQ(ramping_data)
         return data, ramping_data    
    
    
    
-def plot_recontructed_ellipse(model,cs_ref=None):
+def plot_reconstructed_ellipse(model,cs_ref=None):
     '''
     compare reconstructed ellipses for virtual machinie
     '''
@@ -1127,13 +1145,17 @@ def plot_recontructed_ellipse(model,cs_ref=None):
         plot_beam_ellipse_from_cov(cov[:,:],fig=fig,ax=ax[0])
     for cov in model.ycovs:
         plot_beam_ellipse_from_cov(cov[:,:],fig=fig,ax=ax[1])
-    if cs_ref is not None:
+    if cs_ref is None:
+        plot_beam_ellipse(*model.cs[:3],'x',ls=':',color='k',fig=fig,ax=ax[0])
+        plot_beam_ellipse(*model.cs[3:],'y',ls=':',color='k',fig=fig,ax=ax[1])
+    else:
         plot_beam_ellipse(*cs_ref[:3],'x',color='k',fig=fig,ax=ax[0])
         plot_beam_ellipse(*cs_ref[3:],'y',color='k',fig=fig,ax=ax[1])
         mis_x = calculate_mismatch_factor(cs_ref[:3],model.cs[:3])
         mis_y = calculate_mismatch_factor(cs_ref[3:],model.cs[3:])
         plot_beam_ellipse(*model.cs[:3],'x',ls=':',color='k',fig=fig,ax=ax[0],label=f'{mis_x:.2f}')
         plot_beam_ellipse(*model.cs[3:],'y',ls=':',color='k',fig=fig,ax=ax[1],label=f'{mis_y:.2f}')
+    
     ax[0].legend()
     ax[1].legend()
     fig.tight_layout()
@@ -1146,19 +1168,21 @@ class BPMQscan:
         quads_to_scan  = ["BDS_BTS:PSQ_D5501","BDS_BTS:PSQ_D5509","BDS_BTS:PSQ_D5552","BDS_BTS:PSQ_D5559"],
         quads_max_curr = [150,150,150,150],
         quads_min_curr = [5,5,5,5],
+        xnemit_target = None,
+        ynemit_target = None,
         machineIO      = None,
         dtype          = _dtype,
         virtual_beamQerr = 0.0,
         virtual_cs_ref   = None,
-        verbose=True,
-        set_manually = False,
+        verbose          = True,
+        set_manually     = False,
         wait_before_measure = False,
         ):
         self.quads_to_scan = quads_to_scan
         self.mp_quads_to_scan = get_MPelem_from_PVnames(quads_to_scan)
         self.machineIO = machineIO
-        self.xnemit_target
-        self.ynemit_target
+        self.xnemit_target = xnemit_target
+        self.ynemit_target = ynemit_target
         self.dtype = dtype
         self.verbose = verbose
         self.set_manually = set_manually
@@ -1199,8 +1223,7 @@ class BPMQscan:
             quads_to_scan = quads_to_scan,
             B2min = B2min,
             B2max = B2max, 
-            dtype = dtype)
-        #self.model.reconfigure_quadrupole_strengths(lB2)        
+            dtype = dtype)   
             
     
     def initialize(self,lB2=None, init_llB2=None, set_manually=False, wait_before_measure=False):
@@ -1216,9 +1239,7 @@ class BPMQscan:
                     lB2 = [q.properties['B2'] for q in self.machine.quads_to_scan]
                 else:
                     quads_curr, _ = self.machineIO.fetch_data(self.self.machine.input_CSETs, 0.1)
-                    lB2 = []
-                    for mp_quad, curr in zip(self.mp_quads_to_scan,quads_curr):
-                        lB2.append(mp_quad.convert(curr,from_field='I',to_field='B2'))
+                    lB2 = [mp_quad.convert(curr, from_field='I', to_field='B2') for mp_quad, curr in zip(self.mp_quads_to_scan, quads_curr)]
             if len(lB2) >= 2:
                 init_llB2 = torch.tensor([lB2] * 4, dtype= self.dtype)  # preset q-scan
                 init_llB2[0][0] *= 1.2
@@ -1229,29 +1250,24 @@ class BPMQscan:
                 init_llB2 = torch.tensor([lB2] * 3, dtype= self.dtype)  # preset q-scan
                 init_llB2[0][0] *= 1.2
                 init_llB2[2][0] *= 0.8
-                    
-            if self.verbose:
-                print('following quads preset will be used')
-                display(pd.DataFrame(init_llB2,columns=[qname + ':B2 (T/m)' for qname in quads_to_scan]))
         else:
             init_llB2 = torch.tensor(init_llB2, dtype= self.dtype)
                     
         llB2_RDs = []
         llBPMQ  = []
         for lB2 in init_llB2:
-            lB2_RDs, lBPMQ = self.evaluate_candidate(lB2,set_manually=set_manually,wait_before_measure=wait_before_measure)
+            self.evaluate_candidate(lB2)
         
         
-    def evaluate_candidate(self,lB2,set_manually=False,wait_before_measure=False):
+    def evaluate_candidate(self,lB2):
 #         if type(lB2) is torch.Tensor:
 #             lB2 = lB2.detach().numpy().flatten()
-        quad_Iset = [self.mp_quads_to_scan[i].convert(b2,from_field='B2',to_field='I') 
-                     for i,b2 in enumerate(lB2)]
+        quad_Iset = [self.mp_quads_to_scan[i].convert(b2,from_field='B2',to_field='I') for i,b2 in enumerate(lB2)]
                      
         set_manually = set_manually or self.set_manually
         wait_before_measure = wait_before_measure or self.wait_before_measure
         
-        if set_manually and self.machineIO:
+        if self.set_manually and self.machineIO:
             input('set the followings quads')
             display(pd.DataFrame(quad_Iset,columns=self.quads_to_scan))
             ave, data = self.machine.machineIO.fetch_data(self.machine.monitor_RDs)
@@ -1261,18 +1277,19 @@ class BPMQscan:
             if wait_before_measure:
                 input("Press Enter to continue...")
             data,ramping_data = self.machine.get_result(future)
+            
         # use readback instead of set
         if self.machineIO is not None:
             lB2 = [self.mp_quads_to_scan[i].convert(data[qname+':I_RD'].mean(),from_field='I',to_field='B2') 
                     for i,qname in enumerate(quads_to_scan)]
-        cols = [col for col in data.columns if col[-6:]==':beamQ']
-        lBPMQ = data[cols].mean()
+                    
+        bpm_cols = [col for col in data.columns if col.endswith(':beamQ')]
+        lBPMQ = data[bpm_cols].mean()
+        
         if self.verbose:
             display(pd.DataFrame(lBPMQ,columns=['']).T)
-    #         train_VD_target = [[[data[col].mean() for col in data.columns if col[-6:]==':beamQ']]]
-        lB2 = torch.tensor(lB2,dtype=self.dtype)
-        lBPMQ = torch.tensor(lBPMQ,dtype=self.dtype).view(1,-1)        
-        self.concat_train_data(lB2,lBPMQ)
+
+        self._concat_train_data(torch.tensor(lB2, dtype=self.dtype), torch.tensor(lBPMQ, dtype=self.dtype).view(1, -1))
     
     def concat_train_data(self,lB2,lBPMQ):
         if hasattr(self,'train_lB2'):
@@ -1305,7 +1322,5 @@ class BPMQscan:
             self.train_model()
             if self.machineIO is None and cs_ref is None:
                 cs_ref = self.machine.cs_ref
-            plot_results(self.model,cs_ref=cs_ref)
+            plot_reconstructed_ellipse(self.model,cs_ref=cs_ref)
             plt.show()
-               
-    

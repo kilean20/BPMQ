@@ -121,24 +121,13 @@ def is_list_of_lists(input_list: Union[list, np.ndarray]) -> bool:
     return all(isinstance(item, list) for item in input_list)
 
 
-def from_listdict_to_pd(data):
-    # Extract all keys from the list of dicts
+# Convert list of dicts to pandas DataFrame
+def from_listdict_to_pd(data: List[Dict]) -> pd.DataFrame:
     all_keys = set().union(*data)
-
-    # Create a dictionary of lists
-    dict_of_lists = {}
-
-    # Populate the dictionary of lists
-    for key in all_keys:
-        dict_of_lists[key] = []
-        for d in data:
-            dict_of_lists[key].append(d.get(key, np.nan))
-
-    # Ensure all lists have the same length
+    dict_of_lists = {key: [d.get(key, np.nan) for d in data] for key in all_keys}
     max_length = max(len(lst) for lst in dict_of_lists.values())
     for key in dict_of_lists:
         dict_of_lists[key] += [np.nan] * (max_length - len(dict_of_lists[key]))
-
     return pd.DataFrame(dict_of_lists)
 
 
@@ -208,61 +197,60 @@ def sort_by_Dnum(strings):
     return sorted_strings
     
     
-def calculate_mismatch_factor(cs_ref,cs_test):
+# Calculate mismatch factor between two Courant-Snyder parameters
+def calculate_mismatch_factor(cs_ref: Tuple[float, float, float], cs_test: Tuple[float, float, float]) -> float:
     alpha_ref, beta_ref, nemit_ref = cs_ref
-    alpha,     beta,     nemit     = cs_test
+    alpha, beta, nemit = cs_test
     gamma_ref = (1 + alpha_ref**2) / beta_ref
-    gamma     = (1 + alpha**2    ) / beta
-    R = beta_ref*gamma + beta*gamma_ref -2*alpha_ref*alpha
-    Mx = max(0.5*(R+max(R**2-4,0)**0.5),1)**0.5 - 1
-    return max( (nemit/nemit_ref)-1,1-(nemit/nemit_ref) )*Mx
-    
-    
-def generate_ellipse(alpha, beta, nemit, bg):
-    # Covariance matrix
     gamma = (1 + alpha**2) / beta
-    cov_matrix = np.array([[ nemit * beta,         -nemit * alpha * 1e-3],
-                           [-nemit * alpha * 1e-3,  nemit * gamma * 1e-6]])
-    cov_matrix = cov_matrix/bg*1e6
-    # Generate ellipse points
+    R = beta_ref * gamma + beta * gamma_ref - 2 * alpha_ref * alpha
+    Mx = max(0.5 * (R + max(R**2 - 4, 0)**0.5), 1)**0.5 - 1
+    return max((nemit / nemit_ref) - 1, 1 - (nemit / nemit_ref)) * Mx
+    
+    
+# Generate ellipse points based on Courant-Snyder parameters
+def generate_ellipse(alpha: float, beta: float, nemit: float, bg: float) -> np.ndarray:
+    gamma = (1 + alpha**2) / beta
+    cov_matrix = np.array([
+        [nemit * beta, -nemit * alpha * 1e-3],
+        [-nemit * alpha * 1e-3, nemit * gamma * 1e-6]
+    ]) / bg * 1e6
     t = np.linspace(0, 2 * np.pi, 100)
     circle = np.array([np.cos(t), np.sin(t)])
-    # Apply covariance matrix to rotate and scale the circle
     ellipse = np.linalg.cholesky(cov_matrix).dot(circle)
     return ellipse
     
 
-def plot_beam_ellipse(alpha, beta, nemit, bg, direction='x',
-                      ax=None, fig=None, **kwargs):
+# Plot beam ellipse
+def plot_beam_ellipse(alpha: float, beta: float, nemit: float, bg: float, direction: str = 'x',
+                      ax: Optional[plt.Axes] = None, **kwargs):
     ellipse = generate_ellipse(alpha, beta, nemit, bg)
-    # Plotting
     if ax is None:
-        fig,ax = plt.subplots(figsize=(4,3.3))
-    ax.plot(ellipse[0, :], ellipse[1, :]*1e3, **kwargs)
-    ax.set_xlabel(direction + "  (mm)")
-    ax.set_ylabel(direction + "' (mrad)" )
+        fig, ax = plt.subplots(figsize=(4, 3.3))
+    ax.plot(ellipse[0, :], ellipse[1, :] * 1e3, **kwargs)
+    ax.set_xlabel(f"{direction}  (mm)")
+    ax.set_ylabel(f"{direction}' (mrad)")
     ax.grid(True)
     
-    
-def plot_beam_ellipse_from_cov(cov, direction='x',
-                               ax=None, fig=None, **kwargs):
+
+# Plot beam ellipse from covariance matrix
+def plot_beam_ellipse_from_cov(cov: np.ndarray, direction: str = 'x',
+                               ax: Optional[plt.Axes] = None, **kwargs):
     t = np.linspace(0, 2 * np.pi, 100)
     circle = np.array([np.cos(t), np.sin(t)])
+    cov = cov.copy()
     fail = True
-    cov = cov.clone()
-    while(fail):
+    while fail:
         try:
             ellipse = np.linalg.cholesky(cov).dot(circle)
             fail = False
-        except:
-            fail = True
-            cov[0,0] += 1e-6
-            cov[1,1] += 1e-6
+        except np.linalg.LinAlgError:
+            cov[0, 0] += 1e-6
+            cov[1, 1] += 1e-6
 
-    # Plotting
     if ax is None:
-        fig,ax = plt.subplots(figsize=(4,3.3))
-    ax.plot(ellipse[0, :]*1e3, ellipse[1, :]*1e3, **kwargs)
-    ax.set_xlabel(direction + "  (mm)")
-    ax.set_ylabel(direction + "' (mrad)" )
+        fig, ax = plt.subplots(figsize=(4, 3.3))
+    ax.plot(ellipse[0, :] * 1e3, ellipse[1, :] * 1e3, **kwargs)
+    ax.set_xlabel(f"{direction}  (mm)")
+    ax.set_ylabel(f"{direction}' (mrad)")
     ax.grid(True)
