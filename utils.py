@@ -7,6 +7,7 @@ from typing import List, Optional, Tuple, Dict, Union, Callable
 import numpy as np
 import pandas as pd
 from scipy import optimize
+import matplotlib.pyplot as plt
 
 def _warn(message, *args, **kwargs):
     return 'warning: ' +str(message) + '\n'
@@ -205,7 +206,7 @@ def calculate_mismatch_factor(cs_ref: Tuple[float, float, float], cs_test: Tuple
     gamma = (1 + alpha**2) / beta
     R = beta_ref * gamma + beta * gamma_ref - 2 * alpha_ref * alpha
     Mx = max(0.5 * (R + max(R**2 - 4, 0)**0.5), 1)**0.5 - 1
-    return max((nemit / nemit_ref) - 1, 1 - (nemit / nemit_ref)) * Mx
+    return max((nemit / nemit_ref) - 1, (nemit_ref / nemit) -1) * Mx
     
     
 # Generate ellipse points based on Courant-Snyder parameters
@@ -223,7 +224,7 @@ def generate_ellipse(alpha: float, beta: float, nemit: float, bg: float) -> np.n
 
 # Plot beam ellipse
 def plot_beam_ellipse(alpha: float, beta: float, nemit: float, bg: float, direction: str = 'x',
-                      ax: Optional[plt.Axes] = None, **kwargs):
+                      ax: Optional[plt.Axes] = None, fig=None, **kwargs):
     ellipse = generate_ellipse(alpha, beta, nemit, bg)
     if ax is None:
         fig, ax = plt.subplots(figsize=(4, 3.3))
@@ -235,7 +236,7 @@ def plot_beam_ellipse(alpha: float, beta: float, nemit: float, bg: float, direct
 
 # Plot beam ellipse from covariance matrix
 def plot_beam_ellipse_from_cov(cov: np.ndarray, direction: str = 'x',
-                               ax: Optional[plt.Axes] = None, **kwargs):
+                               ax: Optional[plt.Axes] = None, fig=None, **kwargs):
     t = np.linspace(0, 2 * np.pi, 100)
     circle = np.array([np.cos(t), np.sin(t)])
     cov = cov.copy()

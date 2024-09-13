@@ -4,8 +4,9 @@ import datetime
 import time
 import warnings
 from collections import OrderedDict
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Callable
 from copy import deepcopy as copy
+import concurrent
 
 # Third-Party Libraries
 import numpy as np
@@ -17,7 +18,7 @@ from IPython.display import display
 # Local Libraries
 from construct_machineIO import Evaluator, construct_machineIO
 from machine_portal_helper import get_MPelem_from_PVnames
-from utils import calculate_Brho, calculate_betagamma, get_Dnum_from_pv, sort_by_Dnum, calculate_mismatch_factor
+from utils import calculate_Brho, calculate_betagamma, get_Dnum_from_pv, sort_by_Dnum, calculate_mismatch_factor, plot_beam_ellipse_from_cov, plot_beam_ellipse
 
 
 # Ignore specific user warnings for tensor copying
@@ -445,7 +446,7 @@ class EnvelopeEnsembleModel:
         self.Brho = calculate_Brho(E_MeV_u,mass_number,charge_number)
         self.bg   = calculate_betagamma(E_MeV_u,mass_number)
         
-        for elem in self.env_model.latmap.elements:
+        for elem in self.latmap.elements:
             if 'Brho' in elem.properties:
                 elem.reconfigure(Brho=self.Brho)        
 
@@ -453,7 +454,7 @@ class EnvelopeEnsembleModel:
         self.cs_ref = torch.tensor(cs_ref,dtype=self.dtype)
 
         if xcovs is None:
-            self.xcovs, self.ycovs = noise2covar(torch.zeros(1,6,dtype=dtype),*cs_ref,bg=bg)
+            self.xcovs, self.ycovs = noise2covar(torch.zeros(1,6,dtype=dtype),*cs_ref,bg=self.bg)
         else:
             self.xcovs = torch.tensor(xcovs,dtype=dtype)
             self.ycovs = torch.tensor(ycovs,dtype=dtype)
@@ -563,7 +564,7 @@ class EnvelopeEnsembleModel:
         iPM=None, PM_llB2=None, PM_xrms_targets=None, PM_yrms_targets=None, PM_rms_tolerances=None, 
         xnemit_target=None,
         ynemit_target=None,
-        debug=False):  
+        verbose=False):  
         
         apertures = torch.tensor([self.latmap.elements[idx].aperture for idx in i_monitors], dtype=self.dtype)
         eval_counter = [0]
@@ -579,6 +580,10 @@ class EnvelopeEnsembleModel:
             ll_xvars, ll_yvars = ll_xcovs[:,:,:,0,0], ll_ycovs[:,:,:,0,0]
 
             BPMQ_sim = (ll_xvars[:,iBPMQ,:] - ll_yvars[:,iBPMQ,:])*1e6
+            #print("iBPMQ",iBPMQ)
+            #print("BPMQ_sim.shape",BPMQ_sim.shape)
+            #print("BPMQ_targets.shape",BPMQ_targets.shape)
+            #print("BPMQ_targets[:,:,None].shape",BPMQ_targets[:,:,None].shape)
             loss = torch.mean(torch.abs(BPMQ_sim - BPMQ_targets[:,:,None]) / BPMQ_tolerances[None,:,None], dim=[0,1])
 #             print("BPMQloss",loss)
 #             max_rms  = (torch.max(ll_xvars, ll_yvars).max(dim=0).values)**0.5 # (meter)
@@ -594,7 +599,7 @@ class EnvelopeEnsembleModel:
                                          /PM_rms_tolerances[None,:,None], dim=[0,1] )
 #                 max_rms  = (torch.max(ll_xvars, ll_yvars).max(dim=0).values)**0.5 # (meter)
 #                 reg_beam_loss = torch.max(reg_beam_loss, torch.relu(5*(4*max_rms/apertures[:,None] - 1)).max(dim=0).values**2 )
-                if debug:
+                if verbose:
                     print(f'cs_reconst, PM_loss: {PM_loss}, reg_beam_loss: {reg_beam_loss}')
                 loss = 0.7*loss + 0.3*PM_loss
 
@@ -605,47 +610,34 @@ class EnvelopeEnsembleModel:
                 emit_prior_loss = (torch.relu(torch.abs(xnemit_sim_ratio - 1) - 0.2)**2 +
                                    torch.relu(torch.abs(ynemit_sim_ratio - 1) - 0.2)**2)
                 loss += emit_prior_loss
-                if debug:
+                if verbose:
                     print(f'cs_reconst, emit_prior_loss: {emit_prior_loss}')
             
 #             loss += reg_beam_loss    
-            if torch.sum(loss > 100) > 0.5*len(loss):
-                raise ValueError("Loss exceeds threshold.")
+#            if torch.sum(loss > 100) > 0.5*len(loss):
+#                raise ValueError("Loss exceeds threshold.")
 #             if loss.max() > 1 and eval_counter[0]>= max_iter-2:
 #                 raise ValueError() 
             return loss
         
         return loss_fun, reset_eval_counter
     
-    def _cs_reconstruct_one_iter(self,batch_loss_func,batch_size,max_iter,num_restarts=100,debug=False):
+    def _cs_reconstruct_one_iter(self,batch_loss_func,batch_size,max_iter):
         """
         Executes one iteration of the cross-section reconstruction process using L-BFGS optimization.
         """        
-        if debug:
-            num_restarts = 1
-        for _ in range(num_restarts):
-            noise_ensemble = torch.randn(batch_size, 6, dtype=self.dtype, requires_grad=True)
-            optimizer = torch.optim.LBFGS([noise_ensemble],lr=0.9,max_iter=max_iter)
-            # Your training loop
-            def closure():
-                optimizer.zero_grad()
-                loss = batch_loss_func(noise_ensemble).mean()
-                loss.backward()
-                return loss
-            if debug:
-                optimizer.step(closure)
-                loss = closure().item()
-                noise_ensemble = noise_ensemble.detach()
-                return loss, noise_ensemble
-            else:
-                try:
-                    optimizer.step(closure)
-                    loss = closure().item()
-                    noise_ensemble = noise_ensemble.detach()
-                    return loss, noise_ensemble
-                except:
-                    continue
-        raise ValueError(f'cs_reconstruct failed after {num_restarts} attempts')
+        noise_ensemble = torch.randn(batch_size, 6, dtype=self.dtype, requires_grad=True)
+        optimizer = torch.optim.LBFGS([noise_ensemble],lr=0.9,max_iter=max_iter)
+        # Your training loop
+        def closure():
+            optimizer.zero_grad()
+            loss = batch_loss_func(noise_ensemble).mean()
+            loss.backward()
+            return loss
+        optimizer.step(closure)
+        loss = closure().item()
+        noise_ensemble = noise_ensemble.detach()
+        return loss, noise_ensemble
     
     
     def cs_reconstruct(self, 
@@ -664,7 +656,7 @@ class EnvelopeEnsembleModel:
                        batch_size: int = 16,
                        max_iter: int = 100,
                        num_restarts: int = 20,
-                       debug = False,
+                       verbose = True,
                        ):    
         '''
         Parameters:
@@ -713,41 +705,30 @@ class EnvelopeEnsembleModel:
             iPM=iPM, PM_llB2=PM_llB2, PM_xrms_targets=PM_xrms_targets, PM_yrms_targets=PM_yrms_targets, PM_rms_tolerances=PM_rms_tolerances, 
             xnemit_target=xnemit_target,
             ynemit_target=ynemit_target,
-            debug = debug,
+            verbose = verbose,
         )
 
-        loss, best_noise_ensemble = self._cs_reconstruct_one_iter(loss_func, batch_size, max_iter, debug=debug)
+        loss, combined_noise_ensemble = self._cs_reconstruct_one_iter(loss_func, 8*batch_size, max_iter)
 
         with torch.no_grad():
-            best_losses = loss_func(best_noise_ensemble)
+            combined_losses = loss_func(combined_noise_ensemble)
 
         for i in range(num_restarts - 1):
-            mask = best_losses < 0.1
-            if torch.sum(mask) > min(8,0.5 * batch_size):
+            mask = combined_losses < 0.1
+            if torch.sum(mask) > batch_size:
                 break
             reset_eval_counter()
-            loss, noise_ensemble = self._cs_reconstruct_one_iter(loss_func, batch_size, max_iter,debug=debug)
+            loss, noise_ensemble = self._cs_reconstruct_one_iter(loss_func, 8*batch_size, max_iter)
             with torch.no_grad():
                 losses = loss_func(noise_ensemble)
+            combined_losses = torch.cat((combined_losses, losses))
+            combined_noise_ensemble = torch.cat((combined_noise_ensemble, noise_ensemble), dim=0)
 
-            combined_losses = torch.cat((best_losses, losses))
-            combined_noise_ensemble = torch.cat((best_noise_ensemble, noise_ensemble), dim=0)
+        # Sort the combined losses and select the top `batch_size` values
+        sorted_indices = combined_losses.argsort()[:batch_size]
+        best_losses = combined_losses[sorted_indices]
+        best_noise_ensemble = combined_noise_ensemble[sorted_indices]
 
-            # Sort the combined losses and select the top `batch_size` values
-            sorted_indices = combined_losses.argsort()[:batch_size]
-            best_losses = combined_losses[sorted_indices]
-#             print("best_losses",best_losses)
-            best_noise_ensemble = combined_noise_ensemble[sorted_indices]
-
-        # Final selection of noise ensembles based on the mask
-        n_ens = min(8,round(0.5 * batch_size))
-#         mask = best_losses < 0.1
-#         if torch.sum(mask) > n_ens:
-#             best_losses = best_losses[mask]
-#             best_noise_ensemble = best_noise_ensemble[mask]
-#         else:
-        best_losses = best_losses[:n_ens]
-        best_noise_ensemble = best_noise_ensemble[:n_ens]
         self.xcovs, self.ycovs = self.noise2covar(best_noise_ensemble) 
         self.xcovs_mean = self.xcovs.mean(dim=0, keepdim=True)
         self.ycovs_mean = self.ycovs.mean(dim=0, keepdim=True)
@@ -775,7 +756,8 @@ class EnvelopeEnsembleModel:
             l_xcovs, l_ycovs = self.simulate_beam_covars(self.xcovs,self.ycovs,i_monitors)
             l_xvars, l_yvars = l_xcovs[:,:,0,0], l_ycovs[:,:,0,0]
             BPMQ_sim = l_xvars[iBPMQ,:]*1e6 - l_yvars[iBPMQ,:]*1e6  # (mm^2)
-            loss    = -torch.mean(BPMQ_sim.std(axis=1))  # variance of BPMQ maximized for best resolving solution
+            # maximize variance of BPMQ for best resolving solution.   torch.tensor.max(axis=..) gives tuple of max and argmax
+            loss    = -torch.mean(BPMQ_sim.max(axis=1)[0]-BPMQ_sim.min(axis=1)[0])  
             if regularize:
 #                 reg_beam_loss = 1+ F.elu(10*(6*max_rms/apertures) - 10).max()
 #                 reg_B2_limit = torch.mean(1+F.elu(5*(self.B2min-lB2))) + torch.mean(1+F.elu(5*(lB2-self.B2max)))
@@ -1030,11 +1012,12 @@ class virtual_machine_BPMQ_Evaluator:
         xcovs = None,
         ycovs = None,
         cs_ref = None,
-        dtype=_dtype
+        dtype=_dtype,
         virtual_beamQerr = 0.0,
         ):
         self.virtual_beamQerr = virtual_beamQerr
-        self.cs_ref = cs_ref if cs_ref is not None else torch.concat(noise2cs(torch.randn(1,6,dtype=dtype)))
+        self.dtype = dtype
+        self.cs_ref = cs_ref if cs_ref is not None else noise2cs(torch.randn(1,6,dtype=dtype)).view(6)
         self.env_model = EnvelopeEnsembleModel(
             E_MeV_u, mass_number, charge_number,
             latmap=latmap,                  
@@ -1044,7 +1027,7 @@ class virtual_machine_BPMQ_Evaluator:
             xcovs=xcovs,
             ycovs=ycovs,
             cs_ref = self.cs_ref,
-            dtype  = self.dtype,
+            dtype  = dtype,
             )
             
         if quads_to_scan is None:
@@ -1065,13 +1048,15 @@ class virtual_machine_BPMQ_Evaluator:
         lB2 = []
         for curr,mp_elem in zip(x,self.mp_quads_to_scan):
             lB2.append(mp_elem.convert(curr,from_field='I',to_field='B2'))
-        lB2 = torch.tensor(lB2,dtype=_dtype)
-        self.env_model.reconfigure_quadrupole_strengths(lB2)
-        l_xcovs, l_ycovs = self.simulate_beam_covars(self.env_model.xcovs,
-                                                     self.env_model.ycovs,
-                                                     self.env_model.i_bpms`)
-        xvars, yvars = l_xcovs[:,0,0,0], l_ycovs[:,0,0,0]
-        BPMQ_sim = (xvars -yvars).detach.numpy()*1e6
+            
+        with torch.no_grad():
+            lB2 = torch.tensor(lB2,dtype=self.dtype)
+            self.env_model.reconfigure_quadrupole_strengths(lB2)
+            l_xcovs, l_ycovs = self.env_model.simulate_beam_covars(self.env_model.xcovs,
+                                                                   self.env_model.ycovs,
+                                                                   self.env_model.i_bpms)
+            xvars, yvars = l_xcovs[:,0,0,0], l_ycovs[:,0,0,0]
+            BPMQ_sim = (xvars -yvars).detach().numpy()*1e6
         BPMQ_sim += self.virtual_beamQerr*np.random.randn(*BPMQ_sim.shape)
         DiffSum = BPMQ_sim/241
         bpmU2 = 1 + DiffSum
@@ -1136,26 +1121,27 @@ class virtual_machine_BPMQ_Evaluator:
    
    
    
-def plot_reconstructed_ellipse(model,cs_ref=None):
+def plot_reconstructed_ellipse(model,cs_ref=None,bg=_bg):
     '''
     compare reconstructed ellipses for virtual machinie
     '''
     fig,ax = plt.subplots(1,2,figsize=(6,3))
     for cov in model.xcovs:
-        plot_beam_ellipse_from_cov(cov[:,:],fig=fig,ax=ax[0])
+        plot_beam_ellipse_from_cov(cov.detach().numpy(),fig=fig,ax=ax[0])
     for cov in model.ycovs:
-        plot_beam_ellipse_from_cov(cov[:,:],fig=fig,ax=ax[1])
+        plot_beam_ellipse_from_cov(cov.detach().numpy(),fig=fig,ax=ax[1])
     if cs_ref is None:
-        plot_beam_ellipse(*model.cs[:3],'x',ls=':',color='k',fig=fig,ax=ax[0])
-        plot_beam_ellipse(*model.cs[3:],'y',ls=':',color='k',fig=fig,ax=ax[1])
+        plot_beam_ellipse(*model.cs[:3],bg,'x',ls=':',color='k',fig=fig,ax=ax[0])
+        plot_beam_ellipse(*model.cs[3:],bg,'y',ls=':',color='k',fig=fig,ax=ax[1])
     else:
-        plot_beam_ellipse(*cs_ref[:3],'x',color='k',fig=fig,ax=ax[0])
-        plot_beam_ellipse(*cs_ref[3:],'y',color='k',fig=fig,ax=ax[1])
+        if isinstance(cs_ref,torch.Tensor):
+            cs_ref  = cs_ref.detach().numpy()
+        plot_beam_ellipse(*cs_ref[:3],bg,'x',color='k',fig=fig,ax=ax[0])
+        plot_beam_ellipse(*cs_ref[3:],bg,'y',color='k',fig=fig,ax=ax[1])
         mis_x = calculate_mismatch_factor(cs_ref[:3],model.cs[:3])
         mis_y = calculate_mismatch_factor(cs_ref[3:],model.cs[3:])
-        plot_beam_ellipse(*model.cs[:3],'x',ls=':',color='k',fig=fig,ax=ax[0],label=f'{mis_x:.2f}')
-        plot_beam_ellipse(*model.cs[3:],'y',ls=':',color='k',fig=fig,ax=ax[1],label=f'{mis_y:.2f}')
-    
+        plot_beam_ellipse(*model.cs[:3],bg,'x',ls=':',color='k',fig=fig,ax=ax[0],label=f'{mis_x:.2f}')
+        plot_beam_ellipse(*model.cs[3:],bg,'y',ls=':',color='k',fig=fig,ax=ax[1],label=f'{mis_y:.2f}')
     ax[0].legend()
     ax[1].legend()
     fig.tight_layout()
@@ -1187,6 +1173,7 @@ class BPMQscan:
         self.verbose = verbose
         self.set_manually = set_manually
         self.wait_before_measure = wait_before_measure
+        self.bg = calculate_betagamma(E_MeV_u,mass_number)
         
         B2min = []
         B2max = []
@@ -1236,7 +1223,7 @@ class BPMQscan:
             if lB2 is None:
                 lB2 = []
                 if self.machineIO is None:
-                    lB2 = [q.properties['B2'] for q in self.machine.quads_to_scan]
+                    lB2 = [q.properties['B2'] for q in self.machine.env_model.quads_to_scan]
                 else:
                     quads_curr, _ = self.machineIO.fetch_data(self.self.machine.input_CSETs, 0.1)
                     lB2 = [mp_quad.convert(curr, from_field='I', to_field='B2') for mp_quad, curr in zip(self.mp_quads_to_scan, quads_curr)]
@@ -1257,15 +1244,13 @@ class BPMQscan:
         llBPMQ  = []
         for lB2 in init_llB2:
             self.evaluate_candidate(lB2)
+        self.train_model()
         
         
     def evaluate_candidate(self,lB2):
 #         if type(lB2) is torch.Tensor:
 #             lB2 = lB2.detach().numpy().flatten()
         quad_Iset = [self.mp_quads_to_scan[i].convert(b2,from_field='B2',to_field='I') for i,b2 in enumerate(lB2)]
-                     
-        set_manually = set_manually or self.set_manually
-        wait_before_measure = wait_before_measure or self.wait_before_measure
         
         if self.set_manually and self.machineIO:
             input('set the followings quads')
@@ -1274,7 +1259,7 @@ class BPMQscan:
             ramping_data = None
         else:
             future = self.machine.submit(quad_Iset)
-            if wait_before_measure:
+            if self.wait_before_measure:
                 input("Press Enter to continue...")
             data,ramping_data = self.machine.get_result(future)
             
@@ -1284,22 +1269,23 @@ class BPMQscan:
                     for i,qname in enumerate(quads_to_scan)]
                     
         bpm_cols = [col for col in data.columns if col.endswith(':beamQ')]
-        lBPMQ = data[bpm_cols].mean()
+        lBPMQ = data[bpm_cols].mean()    # lBPM is shape of (n_bpm,)
         
         if self.verbose:
             display(pd.DataFrame(lBPMQ,columns=['']).T)
 
-        self._concat_train_data(torch.tensor(lB2, dtype=self.dtype), torch.tensor(lBPMQ, dtype=self.dtype).view(1, -1))
+        self._concat_train_data(torch.tensor(lB2, dtype=self.dtype), torch.tensor(lBPMQ, dtype=self.dtype)) # batch_size = 1
     
-    def concat_train_data(self,lB2,lBPMQ):
-        if hasattr(self,'train_lB2'):
-            self.train_llB2 = torch.concat((self.train_lB2,lB2.view(1,-1)),dim=0)
+    def _concat_train_data(self,lB2,lBPMQ):
+        if hasattr(self,'train_llB2'):
+            self.train_llB2 = torch.concat((self.train_llB2,lB2.view(1,-1)),dim=0)
         else:
             self.train_llB2 = lB2.view(1,-1).clone()
+
         if hasattr(self,'train_llBPMQ'):
-            self.train_llBPMQ = torch.concat((self.train_llBPMQ,lBPMQ.view(1,1,-1)),dim=0)
+            self.train_llBPMQ = torch.concat(( self.train_llBPMQ, lBPMQ[None, :] ), dim=0)
         else:
-            self.train_llBPMQ = lBPMQ.view(1,1,-1).clone()
+            self.train_llBPMQ = lBPMQ[None, :]    
 
     def train_model(self, train_llB2=None,train_llBPMQ=None,xnemit_target=None,ynemit_target=None):
         if train_llB2 is None:
@@ -1314,13 +1300,21 @@ class BPMQscan:
         return self.model.query_candidate_quad_set_maximum_BPMQ_var(self.model.i_bpms,verbose=self.verbose)
         
         
-    def run(self,budget,cs_ref=None):
+    def run(self,budget,plot=True,cs_ref=None):
         self.initialize()
         while(len(self.train_llB2) < budget):
-            candidate_llB2, ensemble_std_of_BPMQ = self.query_candidate()
-            self.evaluate_candidate(candidate_llB2)
-            self.train_model()
-            if self.machineIO is None and cs_ref is None:
-                cs_ref = self.machine.cs_ref
-            plot_reconstructed_ellipse(self.model,cs_ref=cs_ref)
+            self.step(plot=plot,cs_ref=cs_ref)
+            
+            
+    def step(self,plot=True,cs_ref=None):
+        candidate_llB2, ensemble_std_of_BPMQ = self.query_candidate()
+        self.evaluate_candidate(candidate_llB2)
+        self.train_model()
+        if plot:
+            self.plot_reconstructed_ellipse(cs_ref=cs_ref)
             plt.show()
+             
+    def plot_reconstructed_ellipse(self,cs_ref=None):
+        if cs_ref is None and hasattr(self.machine,'cs_ref'):
+            cs_ref = self.machine.cs_ref
+        plot_reconstructed_ellipse(self.model,cs_ref=cs_ref,bg=self.bg)
