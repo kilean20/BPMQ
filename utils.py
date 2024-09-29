@@ -80,11 +80,6 @@ def cyclic_difference(x: float, y: float, Lo: float, Hi: float) -> float:
     distance = cyclic_distance(x, y, Lo, Hi)
     return distance * np.sign(np.sin(y_ang - x_ang))
 
-# Get the middle row of a DataFrame group
-def get_middle_row_of_group(group: pd.DataFrame) -> pd.Series:
-    mid_i = len(group) // 2
-    return group.iloc[mid_i]
-
             
 # Nelder-Mead optimization
 def NelderMead(
@@ -255,3 +250,7 @@ def plot_beam_ellipse_from_cov(cov: np.ndarray, direction: str = 'x',
     ax.set_xlabel(f"{direction}  (mm)")
     ax.set_ylabel(f"{direction}' (mrad)")
     ax.grid(True)
+    
+    
+    
+   

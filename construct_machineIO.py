@@ -5,204 +5,219 @@ import warnings
 import click
 from queue import Queue, Empty
 from functools import partial
-from typing import List, Union, Dict
+from typing import Optional, List, Union, Dict
+from copy import deepcopy as copy
 import concurrent
 
 import numpy as np
 import pandas as pd
 
 from gui import popup_handler
-from utils import warn, cyclic_mean_var, suppress_outputs, get_middle_row_of_group
+from utils import warn, cyclic_mean_var, suppress_outputs
 from abc import ABC, abstractmethod
-    
-popup_ramping_not_OK = popup_handler("Action required", "Ramping not OK. Manually adjust PV CSETs to jitter the power suppply before continue.")
-_n_popup_ramping_not_OK = 0
 
-_ensure_set_timeout = 30
-_fetch_data_time_span = 2.05
-_fetch_data_resample_rate = 0.2
-_check_chopper_blocking = True
+
+import sys
+import os
+script_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(script_dir, 'models'))
+from BPMQ_model import BPMQ_model, raw2Q_processor
+
+try:
+    from IPython.display import display as _display
+except ImportError:
+    _display = print
+
+def display(obj):
+    try:
+        _display(obj)
+    except:
+        print(obj)
+    
+popup_ramping_issue = popup_handler(
+    "Action required", "Ramping not OK. Manually adjust PV CSETs to jitter the power supply before continuing."
+)
+n_popup_ramping_issue = 0
+
+# Default configuration values
+DEFAULT_CHECK_CHOPPER_BLOCKING = True
 
 try:
     from phantasy import fetch_data as _phantasy_fetch_data
     from phantasy import ensure_set as _phantasy_ensure_set
     _phantasy_imported = True
 except ImportError:
-    warn("import phantasy failed")
+    warn("Failed to import 'phantasy'.")
     _phantasy_imported = False
-    _check_chopper_blocking = False
+    DEFAULT_CHECK_CHOPPER_BLOCKING = False
     
 try:
-    from epics_tool import _epics_caget, _epics_caput, _epics_fetch_data, _epics_ensure_set 
+    #from epics_tool import _epics_caget, _epics_caput, _epics_fetch_data, _epics_ensure_set 
+    from epics import caget as _epics_caget
+    from epics import caput as _epics_caput
     with suppress_outputs():
         if _epics_caget("REA_EXP:ELMT") is not None:
-            _check_chopper_blocking = False  # don't check FRIB chopper if machine is REA
+            DEFAULT_CHECK_CHOPPER_BLOCKING = False  # Skip check if machine is REA
     _epics_imported = True
 except ImportError:
-    warn("import epics failed")
+    warn("Failed to import 'epics_tool'.")
     _epics_imported = False
-    _check_chopper_blocking = False
-
+    DEFAULT_CHECK_CHOPPER_BLOCKING = False
 
 
 class AbstractMachineIO(ABC):
     def __init__(self,
-                 _ensure_set_timeout = _ensure_set_timeout, 
-                 _fetch_data_time_span = _fetch_data_time_span,
-                 _fetch_data_resample_rate = _fetch_data_resample_rate,
-                 _check_chopper_blocking = _check_chopper_blocking,
-                 _n_popup_ramping_not_OK = _n_popup_ramping_not_OK,
+                 ensure_set_timeout: int = 20, 
+                 fetch_data_time_span: float = 2.0,
+                 resample_interval: float = 0.2,
+                 check_chopper_blocking: bool = DEFAULT_CHECK_CHOPPER_BLOCKING,
+                 n_popup_ramping_issue: int = n_popup_ramping_issue,
+                 keep_history: bool = True,
+                 verbose: bool = False
                 ):
-        self._ensure_set_timeout = _ensure_set_timeout
+        self._ensure_set_timeout = ensure_set_timeout
         self._ensure_set_timewait_after_ramp = 0.25
-        self._fetch_data_time_span = _fetch_data_time_span
-        self._fetch_data_resample_rate = _fetch_data_resample_rate
-        self._return_obj_var = False
-        self._check_chopper_blocking = _check_chopper_blocking
-        self._n_popup_ramping_not_OK = _n_popup_ramping_not_OK
-        self._verbose = False
+        self._fetch_data_time_span = fetch_data_time_span
+        self._resample_interval = resample_interval
+        self._check_chopper_blocking = check_chopper_blocking
+        self._n_popup_ramping_issue = n_popup_ramping_issue
+        self.verbose = verbose
         self._test = False
+        self.keep_history = keep_history
         self.history = {}
-        
-#     def view(self):
-#         for k,v in vars(self).items():
-#             if k not in ['caget','caput','ensure_set','fetch_data']:
-#                 print("  ",k,":",v)
+      
+    def _record_history(self, pvname: str, timestamps, values):
+        if self.keep_history:
+            if pvname not in self.history:
+                self.history[pvname] = {'t': [], 'v': []}
+            self.history[pvname]['t'] += timestamps
+            self.history[pvname]['v'] += values
+      
         
     @abstractmethod
-    def _caget(self,pvname):
-        pass
+    def _caget(self, pvname: str):
+        raise NotImplementedError
         
-    def caget(self,pvname):
+    def caget(self, pvname: str):
         now = datetime.datetime.now()
         value = self._caget(pvname)
-        if not pvname in self.history:
-            self.history[pvname] = {'t':[],'v':[]}
-#         self.history[pvname].append(f)
-        self.history[pvname]['t'].append(now)
-        self.history[pvname]['v'].append(value)
-        
+        self._record_history(pvname,now,value)
         return value
         
     @abstractmethod
-    def _caput(self,pvname,value):
-        pass
-    
-    def caput(self,pvname,value):
+    def _caput(self, pvname: str, value: Union[float, int]):
+        raise NotImplementedError
+
+    def caput(self, pvname: str, value: Union[float, int]):
         now = datetime.datetime.now()
-        self._caput(pvname,value)
-        if not pvname in self.history:
-            self.history[pvname] = {'t':[],'v':[]}
-        self.history[pvname]['t'].append(now)
-        self.history[pvname]['v'].append(value)        
+        self._caput(pvname, value)
+        self._record_history(pvname,now,value)
+ 
     
     @abstractmethod
     def _ensure_set(self,
-                   setpoint_pv,readback_pv,goal,
-                   tol=0.01,
-                   timeout = None,
-                   verbose =None,
-                   keep_data: bool = False,
-                   extra_monitors: List[str] = None,
-                   fillna_method: str = 'linear',
-                   **kws):
-         return 'PutFinish', None
+                    setpoint_pv: List[str], 
+                    readback_pv: List[str], 
+                    goal: List[float], 
+                    tol: List[float],
+                    timeout: Union[int, None] = None,
+                    verbose: Union[bool, None] = None,
+                    keep_data: bool = False,
+                    extra_monitors: Optional[List[str]] = None,
+                    fillna_method: str = 'linear',
+                    **kws) -> Union[str, None]:
+        return 'PutFinish', None
+        
 
     def ensure_set(self,
-                   setpoint_pv,readback_pv,goal,
-                   tol=0.01,
-                   timeout=None,
-                   verbose=None,
+                   setpoint_pv: List[str], 
+                   readback_pv: List[str], 
+                   goal: List[float], 
+                   tol: List[float],
+                   timeout: Union[int, None] = None,
+                   verbose: Union[bool, None] = None,
+                   resample_interval: float = None,
                    keep_data: bool = False,
-                   extra_monitors: List[str] = None,
+                   extra_monitors: Optional[List[str]] = None,
                    fillna_method: str = 'linear',
                    **kws):
-        
-        if verbose is None:
-            verbose = self._verbose
+        verbose = self.verbose if verbose is None else verbose
         if verbose:
-            print('ramping...')
-            display(pd.DataFrame(np.array(goal).reshape(1,-1), 
-                                 columns=setpoint_pv))
+            print('Ramping in progress...')
+            display(pd.DataFrame(np.array(goal).reshape(1, -1), columns=setpoint_pv))
 
         timeout = timeout or self._ensure_set_timeout
-        ret, extra_data = self._ensure_set(setpoint_pv,readback_pv,goal,
-                                           tol=tol,
-                                           timeout=timeout,
-                                           verbose=verbose,
-                                           keep_data = keep_data,
-                                           extra_monitors = extra_monitors,
-                                           fillna_method = 'linear',
-                                           **kws,                                   
-                                           )
+        ret, data = self._ensure_set(setpoint_pv,readback_pv,goal,tol,
+                                     timeout=timeout,
+                                     verbose=verbose,
+                                     keep_data = keep_data,
+                                     extra_monitors = extra_monitors,
+                                     fillna_method = fillna_method,
+                                     **kws,
+                                     )
+        self._ramping_data_wo_resample = data
+        self._ramping_data = data
         time.sleep(self._ensure_set_timewait_after_ramp)
         
-        # now = datetime.datetime.now()
-        # for pvname,val in zip(setpoint_pv, goal):
-            # if not pvname in self.history:
-                # self.history[pvname] = {'t':[],'v':[]}
-            # self.history[pvname]['t'].append(now)
-            # self.history[pvname]['v'].append(value)
-            # 
-            
-        for pvname in extra_data.columns:
-            if not pvname in self.history:
-                self.history[pvname] = {'t':[],'v':[]}
-            self.history[pvname]['t'] += extra_data.index.tolist()
-            self.history[pvname]['v'] += extra_data[pvname].tolist()
+        if data is not None:
+            resample_interval = resample_interval or self._resample_interval
+            resample_interval = f'{int(1000 * resample_interval)}ms'
+            data = data.resample(resample_interval).ffill().dropna()
+            self._ramping_data = data
+            if self.keep_history:
+                for pvname in data.columns:
+                    if pvname not in self.history:
+                        self.history[pvname] = {'t': [], 'v': []}
+                    self.history[pvname]['t'] += data.index.tolist()
+                    self.history[pvname]['v'] += data[pvname].tolist()
         
-        return ret, extra_data
+        return ret, data
                 
 
     @abstractmethod
-    def _fetch_data(self,pvlist,
-                    time_span = None, 
-                    abs_z = None, 
-                    with_data = False,
-                    data_opt = {'with_timestamp':True},
-                    verbose = None,
-                    **kws):
+    def _fetch_data(self, pvlist: List[str], time_span: float = None, abs_z: Union[float, None] = None, with_data: bool = False,
+                    data_opt: Dict = {'with_timestamp': True}, verbose: bool = False, **kws):
         pass
 
-    def fetch_data(self,pvlist,
-                   time_span = None, 
-                   abs_z = None, 
-                   with_data = False,
-                   resample_rate = None,
-                   verbose = None,
-                   check_chopper_blocking = None,
-                   debug = False,
-                   **kws,
-                   ):
+    def fetch_data(self,
+                   pvlist: List[str],
+                   time_span: float = None, 
+                   abs_z: Union[float, None] = None, 
+                   with_data: bool = False,
+                   resample_interval : float = None,
+                   verbose: Union[bool, None] = None,
+                   check_chopper_blocking: Union[bool, None] = None,
+                   **kws):
         
         now = datetime.datetime.now()
         time_span = time_span or self._fetch_data_time_span
-        resample_rate = resample_rate or self._fetch_data_resample_rate
-        verbose = verbose or self._verbose
-                
-        ave, raw = self._fetch_data(pvlist,
-                                    time_span = time_span, 
-                                    abs_z = abs_z, 
-                                    with_data = True,
-                                    timeout = timeout,
-                                    data_opt = {'with_timestamp':True},
-                                    **kws,
-                                    )
-                                    
-        raw.index = raw.index.round(str(int(1000*resample_rate))+'ms')
-        raw = raw.groupby(raw.index).apply(get_middle_row_of_group)
+        verbose = self.verbose if verbose is None else verbose
+        # Sanitize kws to avoid conflicts with explicit 'with_timestamp' in data_opt
+        if kws is not None:
+            if 'data_opt' in kws and isinstance(kws['data_opt'], dict):
+                kws['data_opt'].pop('with_timestamp', None)
+
+        ave, data = self._fetch_data(pvlist,
+                                     time_span = time_span, 
+                                     abs_z = abs_z, 
+                                     with_data = True,
+                                     data_opt = {'with_timestamp':True},
+                                     verbose = verbose,
+                                     **kws,
+                                     )
+        self._data_wo_resample = data
+        resample_interval = resample_interval or self._resample_interval                             
+        resample_interval  = str(int(1000*resample_interval ))+'ms'
+        data = data.resample(resample_interval).ffill().dropna()
+        self._data = data
         
-        for pvname, val in zip(pvlist, ave, err):
-            if not pvname in self.history:
-                self.history[pvname] = {'t':[],'v':[]}
-            self.history[pvname]['t'].append(now)
-            self.history[pvname]['v'].append(val)
-        
-        if verbose:
-            print(f'fetched data:')
-            display(pd.DataFrame(np.array(ave).reshape(1,-1), columns=pvlist))
-            
-        return ave, raw
+        if self.keep_history:
+            for pvname, val in zip(pvlist, ave):
+                if pvname not in self.history:
+                    self.history[pvname] = {'t': [], 'v': []}
+                self.history[pvname]['t'] += data.index.tolist()  # Use data timestamps
+                self.history[pvname]['v'] += data[pvname].tolist()  # Use corresponding values
+        return ave, data
     
     
 class construct_machineIO(AbstractMachineIO):
@@ -217,94 +232,81 @@ class construct_machineIO(AbstractMachineIO):
                 warn("EPICS is not imported. caget will return fake zero")
                 f = 0
             else:
-                raise ValueError("EPICS is not imported. cannot caget")
+                raise ValueError("EPICS is not imported. Cannot caget.")
         return f
             
-    def _caput(self,pvname,value):
+    def _caput(self, pvname: str, value: Union[float, int]):
         if self._test:
             pass
         elif _epics_imported:
-            _epics_caput(pvname,value)
+            _epics_caput(pvname, value)
         else:
-            raise ValueError("EPICS is not imported. cannot caput")
+            raise ValueError("EPICS is not imported. Cannot caput.")
       
     def _ensure_set(self,
-                   setpoint_pv,readback_pv,goal,
-                   tol=0.01,
-                   timeout=None,
-                   verbose=None,
-                   keep_data: bool = True,
-                   extra_monitors: List[str] = None,
-                   fillna_method: str = 'linear',
-                   **kws):
+                    setpoint_pv: List[str], 
+                    readback_pv: List[str], 
+                    goal: List[float], 
+                    tol: List[float], 
+                    timeout: Optional[int] = None,
+                    verbose: Optional[bool] = None,
+                    keep_data: bool = True,
+                    extra_monitors: Optional[List[str]] = None,
+                    fillna_method: str = 'linear',
+                    **kws):
         
         t0 = time.monotonic()
         if self._test:
-            ret = None,
-            extra_data = None  #ToDo?
+            ret = None
+            extra_data = None
         elif _phantasy_imported:
             ret, extra_data = _phantasy_ensure_set(
-                setpoint_pv,readback_pv,goal,tol,timeout,
+                setpoint_pv, readback_pv, goal, tol, timeout,
                 verbose=False,
                 keep_data=keep_data,
-                extra_monitors = extra_monitors,
-                fillna_method = fillna_method,
-                **kws,
-                )
-        elif _epics_imported:
-            ret, extra_data = _epics_ensure_set(
-                setpoint_pv,readback_pv,goal,tol,timeout,
-                verbose=False,
-                keep_data=keep_data,
-                extra_monitors = extra_monitors,
-                fillna_method = fillna_method,
-                **kws,
-                )
+                extra_monitors=extra_monitors,
+                fillna_method=fillna_method,
+                **kws
+            )
         else:
-            raise ValueError("Cannot change SET: PHANTASY or EPICS is not imported.")
+            raise ValueError("Cannot change SET: PHANTASY is not imported.")
         
-        if time.monotonic() - t0 > timeout: 
-            if self._n_popup_ramping_not_OK<2:
-                popup_ramping_not_OK()
-                self._n_popup_ramping_not_OK +=1
+        if ret == "Timeout":
+            if self._n_popup_ramping_issue < 2:
+                popup_ramping_issue()
+                self._n_popup_ramping_issue += 1
             else:
                 warn("'ramping_not_OK' issued 2 times already. Ignoring 'ramping_not_OK' issue from now on...")
         
         return ret, extra_data
-                  
-
-  
-    def _fetch_data(self,pvlist,
-                   time_span = None, 
-                   abs_z = None, 
-                   resample_rate = None,
-                   verbose = None,
-                   check_chopper_blocking = None,
-                   debug = False,
-                   **kws,
-                   ):
+             
+        
+    def _fetch_data(self,
+                    pvlist: List[str],
+                    time_span: Optional[float] = None, 
+                    abs_z: Optional[float] = None, 
+                    verbose: Optional[bool] = None,
+                    check_chopper_blocking: Optional[bool] = None,
+                    **kws):
         
         check_chopper_blocking = check_chopper_blocking or self._check_chopper_blocking
-        if check_chopper_blocking and not self._test :
+        
+        if check_chopper_blocking and not self._test:
             try:
                 i_chopper = pvlist.index("ACS_DIAG:CHP:STATE_RD")
             except ValueError:
                 pvlist = list(pvlist) + ["ACS_DIAG:CHP:STATE_RD"]
                 i_chopper = -1  
             
-        while(True):
-            if debug:
-                print(  '_phantasy_imported, _epics_imported',_phantasy_imported, _epics_imported)
-                print(  'pvlist', pvlist)
-                
+        while True:
             if _phantasy_imported:
-                ave,raw = _phantasy_fetch_data(pvlist,time_span,abs_z,resample_rate=resample_rate,verbose=False)
-            elif _epics_imported:
-                ave,raw =    _epics_fetch_data(pvlist,time_span,abs_z,resample_rate=resample_rate,verbose=False)
+                ave, raw = _phantasy_fetch_data(
+                    pvlist, time_span, abs_z=abs_z, verbose=False, with_data=True, **kws
+                )
             else:
-                raise ValueError("PHANTASY or EPICS is not imported and the machineIO is not in test mode.")
+                raise ValueError("PHANTASY is not imported and the machineIO is not in test mode.")
                 
-            if check_chopper_blocking and not self._test :
+            if check_chopper_blocking and not self._test:
                 if ave[i_chopper] != 3:
                     warn("Chopper blocked during fetch_data. Re-try in 5 sec... ")
                     time.sleep(5)
@@ -312,140 +314,82 @@ class construct_machineIO(AbstractMachineIO):
                 else:
                     if i_chopper == -1:
                         pvlist = pvlist[:-1]
-                        ave  = ave[:-1]
-                        raw.drop("ACS_DIAG:CHP:STATE_RD",inplace=True)
+                        ave = ave[:-1]
+                        raw.drop("ACS_DIAG:CHP:STATE_RD", inplace=True)
                         break
             else:
                 break
-                        
-        # ToDo
-        # for i,pv in enumerate(pvlist):
-            # if 'PHASE' in pv:
-                # if 'BPM' in pv:
-                    # Lo = -90
-                    # Hi =  90
-                # else:
-                    # Lo = -180
-                    # Hi =  180
-                # nsample = raw.iloc[i,-3]    
-                # mean,var = cyclic_mean(raw.iloc[i,:nsample].dropna().values,Lo,Hi)
-                # ave[i] = mean
                 
         return ave, raw
-            
-# ToDo
-# class construct_manual_fetch_data:
-    # def __init__(self,pv_for_manual_fetch):
-        # self.pv_for_manual_fetch = pv_for_manual_fetch
-        # self._fetch_data_time_span = _fetch_data_time_span
-        
-    # def __call__(self,pvlist,
-                 # time_span=None, 
-                 # abs_z=None, 
-                 # with_data=False,
-                 # verbose=False):
-        # time_span = time_span or self._fetch_data_time_span
-        
-        # if _phantasy_imported or _epics_imported:
-            # print("=== Manual Input. Leave blank for automatic data read. ===")
-        # else:
-            # print("=== Manual Input: ===")
-        # values = []
-        # pvlist_blank = []
-        # ipv_blank = []
-        # for i,pv in enumerate(pvlist):
-            # val = None
-            # if pv in self.pv_for_manual_fetch:
-                # try:
-                    # val = float(input(pv + ': '))
-                # except:
-                    # print("Input not accepatble format")
-                    # if _epics_imported:
-                        # print(f"trying caget {pv}...")
-                        # test = _epics_caget(pv)
-                        # if test is None:
-                            # while(val is None):
-                                # try:
-                                    # val = float(input(pv + ': '))
-                                # except:
-                                    # print("Input not accepatble format")
-                                    # pass
-            # if val is None:
-                # pvlist_blank.append(pv)
-                # ipv_blank.append(i)
-            # values.append(val)
-            
-        # n_data = 2  # dummy numer of data samples
-        # if len(pvlist_blank) > 0:
-            # if _phantasy_imported:
-                # ave,raw = _phantasy_fetch_data(pvlist_blank,time_span,abs_z,with_data=True,verbose=False)
-                # n_data = raw.shape[1]-3
-            # elif _epics_imported:
-                # ave,raw =    _epics_fetch_data(pvlist_blank,time_span,abs_z,with_data=True,verbose=False)
-                # n_data = raw.shape[1]-3
-            # else:
-                # print("Automatic data read failed. please input manually:")
-                # for i,pv in zip(ipv_blank,pvlist_blank):
-                    # val = float(input(pv))
-                    # values[i] = val
-                # ipv_blank = []
-                # pvlist_blank = []
-        
-        # data = {pv:[val]*n_data for pv,val in zip(pvlist,values)}
-        # for i,pv in enumerate(pvlist):
-            # if i in ipv_blank:
-                # data[pv].append(raw.loc[pv]['#'])
-                # data[pv].append(raw.loc[pv]['mean'])
-                # data[pv].append(raw.loc[pv]['std'] )
-            # else:
-                # mean = np.mean(data[pv])
-                # std  = np.std (data[pv])
-                # data[pv].append(n_data)
-                # data[pv].append(mean  )
-                # data[pv].append(std   )
-        # index = list(np.arange(len(data[pv])))
-        # index[-1] = 'std'
-        # index[-2] = 'mean'
-        # index[-3] = '#'
-        # data = pd.DataFrame(data,index=index).T
-
-        # return data['mean'].to_numpy(), data
         
         
 class Evaluator:
     def __init__(self,
                  machineIO,
                  input_CSETs: List[str],
-                 input_RDs: List[str],
-                 monitor_RDs: List[str],
-                 calculator = None,
+                 input_RDs  : List[str],
+                 input_tols : Union[List[float], np.ndarray],
+                 output_RDs : Optional[List[str]] = None,
+                 ensure_set_kwargs: Optional[Dict] = None,
+                 fetch_data_kwargs: Optional[Dict] = None,
+                 set_manually : Optional[bool] = False,
                  ):
         """
         Initialize the evaluator with machine I/O and relevant data sets.
+        
+        Parameters:
+        - machineIO: An instance of the machine I/O class.
+        - input_CSETs: List of control PVs.
+        - input_RDs  : List of readback PVs.
+        - input_tols : List or array of tolerances for each control PVs.
+        - monitors   : Optional list of additional monitors.
+        - ensure_set_kwargs: Optional dictionary of keyword arguments for ensure_set method.
+        - fetch_data_kwargs: Optional dictionary of keyword arguments for fetch_data method.
         """
         self.machineIO = machineIO
+        self.ensure_set_kwargs = ensure_set_kwargs or {}
+        self.fetch_data_kwargs = fetch_data_kwargs or {}
+        assert isinstance(input_CSETs, list), f"Expected input_CSETs to be of type list, but got {type(input_CSETs).__name__}"
+        assert isinstance(input_RDs  , list), f"Expected input_RDs to be of type list, but got {type(input_RDs).__name__}"
+        assert isinstance(input_tols , (list, np.ndarray)), f"Expected input_tols to be of type list or np.ndarray, but got {type(input_tols).__name__}"
+        if output_RDs is None:
+            output_RDs = []
+        assert isinstance(output_RDs , list), f"Expected output_RDs to be of type list, but got {type(output_RDs).__name__}"
         self.input_CSETs = input_CSETs
-        self.input_RDs = input_RDs
-        if monitor_RDs is None:
-            self.monitor_RDs = input_CSETs + input_RDs
-        else:
-            self.monitor_RDs = input_CSETs + input_RDs + [m for m in monitor_RDs if m not in input_RDs and m not in input_CSETs]
-        self.extra_monitors = [m for m in monitor_RDs if m not in input_RDs and m not in input_CSETs]
-        self.calculator = calculator
-    
+        self.input_RDs   = input_RDs
+        self.input_tols  = input_tols
+        self.output_RDs  = output_RDs
+        self.set_manually = set_manually
+
+        self.fetch_data_monitors = list(set(input_CSETs + input_RDs + extra_monitors))
+        self.ensure_set_monitors = [m for m in self.fetch_data_monitors if m not in input_RDs and m not in input_CSETs]
+        
+    def read(self, fetch_data_kwargs: Optional[Dict] = None):
+        fetch_data_kwargs = fetch_data_kwargs or self.fetch_data_kwargs
+        ave, data = self.machineIO.fetch_data(self.fetch_data_monitors,**fetch_data_kwargs)
+        return data
+        
     def _set_and_read(self, x,                 
-        ensure_set_kwargs = None,
-        fetch_data_kwargs = None,
+        ensure_set_kwargs: Optional[Dict] = None,
+        fetch_data_kwargs: Optional[Dict] = None,
         ):
         """
         Internal method to set the values and read the data.
         """
-        ensure_set_kwargs = ensure_set_kwargs or {}
-        fetch_data_kwargs = fetch_data_kwargs or {}
-        ret, ramping_data = self.machineIO.ensure_set(self.input_CSETs, self.input_RDs, x,
-                                                      extra_monitors=self.extra_monitors,
-                                                      **ensure_set_kwargs)
-        ave, data = self.machineIO.fetch_data(self.monitor_RDs,
+        ensure_set_kwargs = ensure_set_kwargs or self.ensure_set_kwargs
+        fetch_data_kwargs = fetch_data_kwargs or self.fetch_data_kwargs
+        
+        if self.set_manually:
+            ret, ramping_data = None, None
+        else:
+            ret, ramping_data = self.machineIO.ensure_set(self.input_CSETs, 
+                                                          self.input_RDs, 
+                                                          x,
+                                                          self.input_tols,
+                                                          extra_monitors=self.ensure_set_monitors,
+                                                          **ensure_set_kwargs)
+                                                          
+        ave, data = self.machineIO.fetch_data(self.fetch_data_monitors,
                                               **fetch_data_kwargs)
         return data, ramping_data
 
@@ -456,27 +400,82 @@ class Evaluator:
         """
         Submit a task to set and read data asynchronously.
         """
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(self._set_and_read, x, 
-                                 ensure_set_kwargs=ensure_set_kwargs,
-                                 fetch_data_kwargs=fetch_data_kwargs)
-        executor.shutdown(wait=False)
+        if self.set_manually:
+            display(pd.DataFrame(x,columns=self.input_CSETs))
+            input("Set the above PVs and press any key to continue...")
+        
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self._set_and_read, x, 
+                                     ensure_set_kwargs = ensure_set_kwargs,
+                                     fetch_data_kwargs = fetch_data_kwargs)
         return future
 
-    def is_job_done(self, future):
+    def is_job_done(self, future: concurrent.futures.Future) -> bool:
         """
         Check if the submitted job is done.
         """
         return future.done()
 
-    def get_result(self, future):
+    def get_result(self, future: concurrent.futures.Future):
         """
         Retrieve the result from the future.
         """
         data, ramping_data = future.result()
-        if self.calculator:
-            cal_data = self.calculator(data)
-            cal_ramping_data = self.calculator(ramping_data)
-            data = pd.concat((data,cal_data), axis=1)
-            ramping_data = pd.concat((ramping_data,cal_ramping_data), axis=1)
+        self._data = data
+        self._rampling_data = ramping_data
+        return data, ramping_data
+
+
+            
+class Evaluator_wBPMQ(Evaluator):
+    def __init__(self,
+                 machineIO,
+                 input_CSETs: List[str],
+                 input_RDs  : List[str],
+                 input_tols : Union[List[float], np.ndarray],
+                 output_RDs : Optional[List[str]] = None,
+                 BPM_names  : List[str] = None,
+                 BPMQ_models: Dict[str,BPMQ_model] = None,
+                 ensure_set_kwargs: Optional[Dict] = None,
+                 fetch_data_kwargs: Optional[Dict] = None,
+                 set_manually : Optional[bool] = False,
+                 ):
+                 
+                 
+        self.verbose = verbose
+        if output_RDs is None:
+            output_RDs = []
+        else:
+            assert type(output_RDs) is List
+
+        if BPM_names is not None:
+            self.raw2Q = raw2Q_processor(BPM_names=BPM_names,BPMQ_models=BPMQ_models,verbose=verbose)
+            output_RDs = list(set(output_RDs + self.BPMQ_wrapper.PVs2read))
+
+        super().__init__(machineIO, 
+                         input_CSETs= input_CSETs, 
+                         input_RDs  = input_RDs,
+                         input_tols = input_tols,
+                         output_RDs = output_RDs,
+                         ensure_set_kwargs = ensure_set_kwargs,
+                         fetch_data_kwargs = fetch_data_kwargs,
+                         set_manually   = set_manually, 
+                         )
+    def read(self, fetch_data_kwargs: Optional[Dict] = None):
+        fetch_data_kwargs = fetch_data_kwargs or self.fetch_data_kwargs
+        ave, data = self.machineIO.fetch_data(self.fetch_data_monitors,**fetch_data_kwargs)
+        return self.raw2Q(data)
+        
+   
+    def get_result(self, future: concurrent.futures.Future):
+        """
+        Retrieve the result from the future.
+        """
+        data, ramping_data = future.result()
+        data = self.raw2Q(data)
+        if ramping_data is not None:
+            ramping_data = self.raw2Q(ramping_data)
+        self._data = data
+        self._rampling_data = ramping_data
         return data, ramping_data

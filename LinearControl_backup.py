@@ -1,7 +1,6 @@
 import numpy as np
 from copy import deepcopy as copy
 from scipy import optimize
-from typing import List, Dict, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
 
 class LinearModel:
@@ -89,27 +88,14 @@ class LinearModel:
 
 
 class LinearControl:
-    def __init__(self,
-                 x0, dx, xmin, xmax,
-                 goal, goal_tol, 
-                 evaluator,
-                 input_RDs,
-                 output_RDs,
-                 ):
-        
+    def __init__(self,evaluator,goal,goal_tol,x0,dx,xmin,xmax):
+        self.evaluator = evaluator
+        self.goal = np.array(goal)
+        self.goal_tol = np.array(goal_tol)
         self.x0 = np.array(x0)
         self.dx = np.array(dx)
         self.xmin = np.array(xmin)
         self.xmax = np.array(xmax)
-        
-        self.goal = np.array(goal)
-        self.goal_tol = np.array(goal_tol)
-        
-        self.evaluator  = evaluator
-        self.input_RDs  = input_RDs
-        self.output_RDs = output_RDs
-        self.l_evaluated_data = []
-        
         
     def train_model(self, weights_each_sample=None, num_restarts=20, emphasis_recent_data=True, **scipy_optimize_kwargs):
         if not hasattr(self, 'model'):
@@ -125,30 +111,17 @@ class LinearControl:
             **scipy_optimize_kwargs,
         )
     
-    def _evaluate(self,x):
-        future = self.evaluator.submit(x)
-        df,_ = self.evaluator.get_result(future)
-        self.l_evaluated_data.append(df)
-        try:
-            x = df[self.input_RDs].mean().values
-        except:
-            pass
-        y = df[self.output_RDs]
-        y_err = y.std().values
-        y = y.mean().values
-        return x,y,yerr
-    
     def initialize(self):
         x0 = self.x0
         dx = self.dx
-        x_,y_,yerr_ = self._evaluate(x0)
-        x = [x_]
+        x_, y_, yerr_ = self.evaluator(x0)
+        x = [x0]
         y = [y_]
         yerr = [yerr_]
         for i, dx_ in enumerate(dx):
             x_ = copy(x0)
             x_[i] += dx_
-            x_,y_,yerr_ = self._evaluate(x_)
+            x_, y_, yerr_ = self.evaluator(x_)
             x.append(x_)
             y.append(y_)
             yerr.append(yerr_)
@@ -185,7 +158,7 @@ class LinearControl:
     
     def iterate(self,verbose=False):
         candidates = self.query_candidate()
-        x_, y_, yerr_ = self._evaluate(candidates)
+        x_, y_, yerr_ = self.evaluator(candidates)
         self.train_X = np.vstack((self.train_X, [x_]))
         self.train_Y = np.vstack((self.train_Y, [y_]))
         self.train_Yerr = np.vstack((self.train_Yerr, [yerr_]))
@@ -198,54 +171,37 @@ class LinearControl:
             budget = budget - len(self.train_X)
         for i in range(budget):
             x, y = self.iterate()
+            
+            
+class LinearControl_machine_evaluator:
+    def __init__(self,machineIO_evaluator,
+                      output_RDs=None,):
+        self.machineIO_evaluator = machineIO_evaluator
+        self.input_CSETs = machineIO_evaluator.input_CSETs
+        self.input_RDs   = machineIO_evaluator.input_RDs
+        self.input_tols  = machineIO_evaluator.input_tols
+        self.output_RDs  = output_RDs if output_RDs is not None else machineIO_evaluator.output_RDs
 
-                 
+    def __call__(self,x):
+        future = self.machineIO_evaluator.submit(x)
+        data, ramping_data = self.machineIO_evaluator.get_result(future)
+        self._data = machineIO_evaluator._data
+        x_rd = data[self.input_RDs ].values.mean(axis=0)
+        y_rd = data[self.output_RDs].values.mean(axis=0)
+        y_err= data[self.output_RDs].values.std (axis=0)
+        return x_rd, y_rd, y_err
+            
+            
 class LinearControl_virtual_evaluator:
-    def __init__(self,
-        input_CSETs: List[str],
-        output_RDs : List[str],
-        input_bounds=None, 
-        output_bounds=None,
-        output_RDs : Optional[List[str]] = None,
-        **kws):
-        self.input_dim = len(input_CSETs)
-        self.output_dim = len(output_RDs)
-        self.input_CSETs = input_CSETs
-        self.input_RDs   = input_RDs if input_RDs is not None else input_CSETs
-        self.output_RDs  = output_RDs
-        if input_bounds is None:
-            self.train_X = np.random.randn(input_dim+1, input_dim)
-        else:
-            input_bounds = np.array(input_bounds)
-            self.train_X = np.random.rand(input_dim+1, input_dim)*(input_bounds[:,1]-input_bounds[:,0]) + input_bounds[:,0]
-        if output_bounds is None:
-            self.train_Y = np.random.randn(input_dim+1,output_dim)
-        else:
-            output_bounds = np.array(output_bounds)
-            self.train_Y = np.random.rand(input_dim+1, output_dim)*(output_bounds[:,1]-output_bounds[:,0]) + output_bounds[:,0]
-        
+    def __init__(self,input_dim,output_dim):
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.train_X = np.random.randn(input_dim+1, input_dim)
+        self.train_Y = np.random.randn(input_dim+1,output_dim)
         self.model = LinearModel(input_dim,output_dim)
         self.model.train(self.train_X,self.train_Y)
-        
-    def submit(self,x,**kws):
-        data = {}
-        y = self.model(x.reshape(1,-1)).reshape(-1)
-        for v, pv in zip(y,self.output_RDs):
-            data[pv] = v + np.random.randn(5)*1e-6
-        for v, pv in zip(x,self.input_RDs):
-            data[pv] = v + np.random.randn(5)*1e-6
-            
-        timestamps = []
-        for i in range(5):
-            timestamps.append(pd.Timestamp(datetime.datetime.now()))
-            time.sleep(0.1)
-        df = pd.DataFrame(data, index=pd.DatetimeIndex(timestamps), columns=data.keys())
-        return df, df
-        
-    def get_result(self,fake_future_df_df):
-        df = fake_future_df_df[0]
-        # To Do 
-        return fake_future_df_df[0]
+    def __call__(self,x):
+        return x, self.model(x.reshape(1,-1)).reshape(-1), np.ones(self.output_dim)*1e-6
         
   
         

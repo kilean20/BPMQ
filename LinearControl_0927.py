@@ -1,7 +1,6 @@
 import numpy as np
 from copy import deepcopy as copy
 from scipy import optimize
-from typing import List, Dict, Optional, Tuple, Callable
 import matplotlib.pyplot as plt
 
 class LinearModel:
@@ -126,13 +125,9 @@ class LinearControl:
         )
     
     def _evaluate(self,x):
-        future = self.evaluator.submit(x)
-        df,_ = self.evaluator.get_result(future)
+        df = self.evaluator(x)
         self.l_evaluated_data.append(df)
-        try:
-            x = df[self.input_RDs].mean().values
-        except:
-            pass
+        x = df[self.input_RDs].mean().values
         y = df[self.output_RDs]
         y_err = y.std().values
         y = y.mean().values
@@ -199,19 +194,14 @@ class LinearControl:
         for i in range(budget):
             x, y = self.iterate()
 
-                 
+     
+            
 class LinearControl_virtual_evaluator:
-    def __init__(self,
-        input_CSETs: List[str],
-        output_RDs : List[str],
-        input_bounds=None, 
-        output_bounds=None,
-        output_RDs : Optional[List[str]] = None,
-        **kws):
+    def __init__(self,input_CSETs,  output_RDs,
+                      input_bounds=None, output_bounds=None):
         self.input_dim = len(input_CSETs)
         self.output_dim = len(output_RDs)
         self.input_CSETs = input_CSETs
-        self.input_RDs   = input_RDs if input_RDs is not None else input_CSETs
         self.output_RDs  = output_RDs
         if input_bounds is None:
             self.train_X = np.random.randn(input_dim+1, input_dim)
@@ -226,26 +216,10 @@ class LinearControl_virtual_evaluator:
         
         self.model = LinearModel(input_dim,output_dim)
         self.model.train(self.train_X,self.train_Y)
+    def __call__(self,x):
         
-    def submit(self,x,**kws):
-        data = {}
-        y = self.model(x.reshape(1,-1)).reshape(-1)
-        for v, pv in zip(y,self.output_RDs):
-            data[pv] = v + np.random.randn(5)*1e-6
-        for v, pv in zip(x,self.input_RDs):
-            data[pv] = v + np.random.randn(5)*1e-6
-            
-        timestamps = []
-        for i in range(5):
-            timestamps.append(pd.Timestamp(datetime.datetime.now()))
-            time.sleep(0.1)
-        df = pd.DataFrame(data, index=pd.DatetimeIndex(timestamps), columns=data.keys())
-        return df, df
-        
-    def get_result(self,fake_future_df_df):
-        df = fake_future_df_df[0]
         # To Do 
-        return fake_future_df_df[0]
+        return x, self.model(x.reshape(1,-1)).reshape(-1), np.ones(self.output_dim)*1e-6
         
   
         
