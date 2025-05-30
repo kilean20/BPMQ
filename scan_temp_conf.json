@@ -1,0 +1,741 @@
+{
+    "None": {
+        "sequence": "monitor_scan", 
+        "put_pv_name": [""], 
+        "get_pv_name": [""], 
+        "put_pv_valll": [[""]], 
+        "monitorl": [""],
+	"qA_ratio": "9/40",
+	"E":"",
+	"Location":"LEBT"
+    },
+    "LEBT: All_LEBT_profile_monitors": {
+        "sequence": "monitor_scan", 
+        "put_pv_name": [""], 
+        "get_pv_name": [""], 
+        "put_pv_valll": [[""]], 
+        "monitorl": ["FE_LEBT:PM_D0783","FE_LEBT:PM_D0808","FE_LEBT:PM_D0824","FE_LEBT:PM_D0856","FE_LEBT:PM_D0885","FE_LEBT:PM_D0912","FE_LEBT:PM_D0945","FE_LEBT:PM_D0961","FE_LEBT:PM_D0972"],
+	"qA_ratio": "9/40",
+	"E":"",
+	"Location":"LEBT"
+    },
+    "#L-LEBT_profile_monitors": {
+        "sequence": "monitor_scan", 
+        "put_pv_name": [""], 
+        "get_pv_name": [""], 
+        "put_pv_valll": [[""]], 
+        "monitorl": ["FE_LEBT:PM_D0945","FE_LEBT:PM_D0961","FE_LEBT:PM_D0972"],
+	"qA_ratio": "9/40",
+	"E":"",
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_SCS1:VD_D0739": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_SCS1:QE_D0726:V_CSET"], 
+        "get_pv_name": ["FE_SCS1:QE_D0726:V_RD"], 
+        "put_pv_valll": [["3500, 3400, 3300, 3200, 3100, 3000, 2900, 2800, 2700, 2600, 2500, 2400, 2300, 2200, 2100, 2000"]], 
+        "monitorl": ["FE_SCS1:VD_D0739"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"SCS1"
+    },
+    "#U-LEBT FE_LEBT:PM_D0783 (40Ar9+)": {
+        "sequence": "pv_scan", 
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:QE_D0770:V_CSET","FE_LEBT:QE_D0776:V_CSET"], 
+        "get_pv_name": ["FE_LEBT:QE_D0770:V_RD","FE_LEBT:QE_D0776:V_RD"], 
+        "put_pv_valll": [[3000,3500,4000, 4500, 5000, 5500, 6000, 6500,  5000,5000,5000,5000,5000,5000],
+                         [-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4500,-5000,-5500,-6000,-6500]
+                         ],
+        "monitorl": ["FE_LEBT:PM_D0783"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "U-LEBT FE_LEBT:PM_D0783 (40Ar9+)": {
+        "sequence": "pv_scan", 
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:PSQ2_D0770:V_CSET", "FE_LEBT:PSQ1_D0770:V_CSET","FE_LEBT:PSQ2_D0776:V_CSET", "FE_LEBT:PSQ1_D0776:V_CSET"], 
+        "get_pv_name": ["FE_LEBT:PSQ2_D0770:V_RD","FE_LEBT:PSQ1_D0770:V_RD","FE_LEBT:PSQ2_D0776:V_RD", "FE_LEBT:PSQ1_D0776:V_RD"], 
+        "put_pv_valll": [[3000,3500,4000, 4500, 5000, 5500, 6000, 6500,  5000,5000,5000,5000,5000,5000],
+			 [-3000,-3500,-4000, -4500, -5000, -5500, -6000, -6500,  -5000,-5000,-5000,-5000,-5000,-5000],
+                         [-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4000,-4500,-5000,-5500,-6000,-6500],
+                         [4000,4000,4000,4000,4000,4000,4000,4000,4000,4500,5000,5500,6000,6500]
+                         ],
+        "monitorl": ["FE_LEBT:PM_D0783"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0783 (QE-D0770 scan, only xenv)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:QE_D0770:V_CSET"], 
+        "get_pv_name": ["FE_LEBT:QE_D0770:V_RD"], 
+        "put_pv_valll": [["3500,4000,4250,4509.176,4750,5000,5500,6500"]], 
+        "monitorl": ["FE_LEBT:PM_D0783"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0783 (QE-D0770 scan, xenv_20190402)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:QE_D0770:V_CSET"], 
+        "get_pv_name": ["FE_LEBT:QE_D0770:V_RD"], 
+        "put_pv_valll": [["3000, 3500, 4000, 4509.176, 5000, 5500, 6000"]], 
+        "monitorl": ["FE_LEBT:PM_D0783"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0783 (QE-D0770 scan, yenv_20190402)": {
+        "sequence": "pv_scan", 
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:QE_D0770:V_CSET","FE_LEBT:QE_D0776:V_CSET"], 
+        "get_pv_name": ["FE_LEBT:QE_D0770:V_RD","FE_LEBT:QE_D0776:V_RD"], 
+        "put_pv_valll": [[5000,5000,5000,5000,5000,5000],
+                         [-4000,-4500,-5000,-5500,-6000,-6500]
+                         ],
+        "monitorl": ["FE_LEBT:PM_D0783"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0808 (SOL-D0787 scan_wrong)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:SOLR_D0802:I_CSET"], 
+        "get_pv_name": ["FE_LEBT:SOLR_D0802:I_RD"], 
+        "put_pv_valll": [["63.2, 90, 110, 130, 140, 150"]], 
+        "monitorl": ["FE_LEBT:PM_D0808"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0808 (SOL-D0802 scan)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:SOLR_D0802:I_CSET"], 
+        "get_pv_name": ["FE_LEBT:SOLR_D0802:I_RD"], 
+        "put_pv_valll": [["63.2, 90, 110, 130, 140, 150"]], 
+        "monitorl": ["FE_LEBT:PM_D0808"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "#40Ar9+_pv_scan_FE_LEBT:PM_D0824": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:SOLR_D0818:I_CSET"], 
+        "get_pv_name": ["FE_LEBT:SOLR_D0818:I_RD"], 
+        "put_pv_valll": [["81.8, 90, 100, 110, 120, 130, 140,150, 160"]], 
+        "monitorl": ["FE_LEBT:PM_D0824"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "L-LEBT: FE_LEBT:PM_D0961 (40Ar9+)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_LEBT:PSOL_D0951:I_CSET"], 
+        "get_pv_name": ["FE_LEBT:PSOL_D0951:I_RD"], 
+        "put_pv_valll": [["80, 90, 100, 110, 123, 130, 140, 150"]], 
+        "monitorl": ["FE_LEBT:PM_D0961"],
+	"qA_ratio": "9/40",
+	"E":0.012,
+	"Location":"LEBT"
+    },
+    "MEBT: FE_MEBT:PM_D1092 (40Ar9+)": {
+        "sequence": "pv_scan", 
+        "put_pv_name": ["FE_MEBT:PSQ_D1078:I_CSET"], 
+        "get_pv_name": ["FE_MEBT:PSQ_D1078:I_RD"], 
+        "put_pv_valll": [["50, 60, 70, 75, 80, 90, 100"]], 
+        "monitorl": ["FE_MEBT:PM_D1092"],
+	"qA_ratio": "9/40",
+	"E":0.5,
+	"Location":"MEBT"
+    },
+    "#40Ar9+_pv_scan_FE_MEBT:PM_D1092_2": {
+        "sequence": "pv_scan", 
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_MEBT:PSQ_D1057:I_CSET","FE_MEBT:PSQ_D1060:I_CSET","FE_MEBT:PSQ_D1074:I_CSET"], 
+        "get_pv_name": ["FE_MEBT:PSQ_D1057:I_RD","FE_MEBT:PSQ_D1060:I_RD","FE_MEBT:PSQ_D1074:I_RD"], 
+        "put_pv_valll": [[33, 33, 33, 33, 33],
+                         [66, 66, 66, 66, 66],
+                         [70, 80, 85, 90, 100]
+                         ], 
+        "monitorl": ["FE_MEBT:PM_D1092"],
+	"qA_ratio": "9/40",
+	"E":0.5,
+	"Location":"MEBT"
+    },
+    "#40Ar9+_monitor_scan_PM_D2056_2225_2385": {
+        "sequence": "monitor_scan",
+        "put_pv_name": [], 
+        "get_pv_name": [], 
+        "put_pv_valll": [[""]], 
+        "monitorl": ["LS1_BTS:PM_D2056","FS1_CSS:PM_D2225","FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":"",
+	"Location":"LS1"
+    },
+    "Stripper injection: PM_D2056,D2225 (198Pt29+)": {
+        "sequence": "pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2042:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2042:I_RD"], 
+        "put_pv_valll": [[193.889, 173.889, 133.889]],
+        "monitorl": ["LS1_BTS:PM_D2056","FS1_CSS:PM_D2225"],
+	"qA_ratio": "29/198",
+	"E":17,
+	"Location":"LS1"
+    },
+    "40Ar9+_pv_scan_PM_D2056": {
+        "sequence": "pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2002:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2002:I_RD"], 
+        "put_pv_valll": [["60,79.58,100,120,140,160,170"]], 
+        "monitorl": ["LS1_BTS:PM_D2056"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "#Stripper injection: PM_D2225 (40Ar9+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2194:I_CSET","FS1_CSS:PSQ_D2202:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2194:I_RD","FS1_CSS:PSQ_D2202:I_RD"], 
+        "put_pv_valll": [[35.0, 45.538, 55.0, 65.0, 75.0, 85.0, 95.0, 105.0],[113.9,113.9,113.9,113.9,113.9,113.9,113.9,113.9]], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "#Stripper injection: PM_D2225 (40Ar9+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2194:I_CSET","FS1_CSS:PSQ_D2202:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2194:I_RD","FS1_CSS:PSQ_D2202:I_RD"], 
+        "put_pv_valll": [[35.0, 45.538, 55.0, 65.0, 75.0, 85.0, 95.0, 105.0],[108.0,108.0,108.0,108.0,108.0,108.0,108.0,108.0]], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "(New) Stripper injection: PM_D2225 (238U33+ )": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2194:I_CSET","FS1_CSS:PSQ_D2202:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2194:I_RD","FS1_CSS:PSQ_D2202:I_RD"], 
+        "put_pv_valll": [[68.99, 93.14, 117.29, 141.43, 165.58, 68.99, 68.99, 68.99, 68.99, 68.99],[147.57, 147.57, 147.57, 147.57, 147.57, 110.83, 129.30, 147.77, 166.25, 184.72]], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "33/238",
+	"E":17.0,
+	"Location":"LS1"
+    },
+    "FS1 BBS injection: PM_D2385 (40Ar9+)": {
+        "sequence": "pv_scan",
+        "put_pv_name": ["FS1_CSS:QH_D2280:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:QH_D2280:I_RD"], 
+        "put_pv_valll": [[17, 25, 33, 41.32, 50, 60, 67, 74]],
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "40Ar9+_multi_pv_scan_PM_D2056(Kei)_xrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2029:I_CSET","LS1_BTS:PSQ_D2066:I_CSET","LS1_BTS:PSQ_D2073:I_CSET","LS1_BTS:PSQ_D2118:I_CSET","LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2029:I_RD","LS1_BTS:PSQ_D2066:I_RD","LS1_BTS:PSQ_D2073:I_RD","LS1_BTS:PSQ_D2118:I_RD","LS1_BTS:PSQ_D2126:I_RD"], 
+        "put_pv_valll": [[86.59,92.99,98.62,106.40,112.46,118.94,123.70],
+                         [68.18,89.15,91.58,94.21,91.86,88.35,84.62],
+                         [73.91,77.23,83.11,95.08,90.14,87.35,85.23],
+                         [77.54,88.38,86.76,86.03,82.60,65.47,47.04],
+                         [115.43,75.99,75.90,74.98,64.54,31.63,10.17]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "40Ar9+_multi_pv_scan_PM_D2056(Kei)_yrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2013:I_CSET","LS1_BTS:PSQ_D2066:I_CSET","LS1_BTS:PSQ_D2073:I_CSET","LS1_BTS:PSQ_D2118:I_CSET","LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2013:I_RD","LS1_BTS:PSQ_D2066:I_RD","LS1_BTS:PSQ_D2073:I_RD","LS1_BTS:PSQ_D2118:I_RD","LS1_BTS:PSQ_D2126:I_RD"], 
+        "put_pv_valll": [[72.66,79.15,86.94,93.43,99.48,105.97,112.46],
+                         [43.83,21.67,92.05,96.67,94.09,86.58,81.86],
+                         [79.53,71.63,96.16,92.35,92.32,91.51,91.41],
+                         [94.27,85.41,89.36,84.75,87.75,97.42,105.81],
+                         [104.38,103.27,117.93,80.47,79.37,89.13,100.90]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "#Ar9+_multi_pv_scan_PM_D2056(Kei)_xrms_20190307(not used)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2029:I_CSET","LS1_BTS:PSQ_D2066:I_CSET","LS1_BTS:PSQ_D2073:I_CSET","LS1_BTS:PSQ_D2118:I_CSET","LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2029:I_RD","LS1_BTS:PSQ_D2066:I_RD","LS1_BTS:PSQ_D2073:I_RD","LS1_BTS:PSQ_D2118:I_RD","LS1_BTS:PSQ_D2126:I_RD"], 
+        "put_pv_valll": [[76.12,82.61,89.1,95.59,102.08,108.56,115.05],
+                         [68.18,89.15,91.58,94.21,91.86,88.35,84.62],
+                         [73.91,77.23,83.11,95.08,90.14,87.35,85.23],
+                         [77.54,88.38,86.76,86.03,82.60,65.47,47.04],
+                         [115.43,75.99,75.90,74.98,64.54,31.63,10.17]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "#40Ar9+_multi_pv_scan_PM_D2056(Kei)_yrms_20190307(not used)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2013:I_CSET","LS1_BTS:PSQ_D2066:I_CSET","LS1_BTS:PSQ_D2073:I_CSET","LS1_BTS:PSQ_D2118:I_CSET","LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2013:I_RD","LS1_BTS:PSQ_D2066:I_RD","LS1_BTS:PSQ_D2073:I_RD","LS1_BTS:PSQ_D2118:I_RD","LS1_BTS:PSQ_D2126:I_RD"], 
+        "put_pv_valll": [[72.66,79.15,86.94,93.43,99.48,105.97,112.46],
+                         [43.83,21.67,92.05,96.67,94.09,86.58,81.86],
+                         [79.53,71.63,96.16,92.35,92.32,91.51,91.41],
+                         [94.27,85.41,89.36,84.75,87.75,97.42,105.81],
+                         [104.38,103.27,117.93,80.47,79.37,89.13,100.90]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2225"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "#40Ar9+_multi_pv_scan_PM_D2385(Kei)_xrms_yrms_20190402(not used)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET","FS1_BTS:PSQ_D2409:I_CSET","FS1_BTS:PSQ_D2413:I_CSET","FS1_BTS:PSQ_D2421:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD","FS1_BTS:PSQ_D2409:I_RD","FS1_BTS:PSQ_D2413:I_RD","FS1_BTS:PSQ_D2421:I_RD"], 
+        "put_pv_valll": [[6.488, 16.263, 25.952, 35.64, 45.414, 55.188, 64.879],
+                         [8.131, 9.083, 37.367, 22.318, 3.720, 2.7678, 0.0],
+                         [15.484, 31.92, 15.744, 38.149, 30.969, 7.612, 11.246],
+                         [15.917, 48.097, 45.502, 32.526, 44.377, 21.106, 15.657]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "#40Ar9+_multi_pv_scan_PM_D2385(Kei)_xrms_yrms_20190409": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET","FS1_BTS:PSQ_D2409:I_CSET","FS1_BTS:PSQ_D2413:I_CSET","FS1_BTS:PSQ_D2421:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD","FS1_BTS:PSQ_D2409:I_RD","FS1_BTS:PSQ_D2413:I_RD","FS1_BTS:PSQ_D2421:I_RD"], 
+        "put_pv_valll": [[50.17, 60.21, 70.42, 80.45, 90.48, 100.69, 110.73],
+                         [85.12, 93.25, 97.92, 0.0, 0.0, 0.0, 0.0],
+                         [0.0, 0.0, 0.0, 100.69, 44.98, 0.0, 0.0],
+                         [90.1, 131.76, 126.67, 137.42, 68.8, 83.69, 77.29]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "40Ar9+_multi_pv_scan_PM_D2056(Kei)_xrms_20190924": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2013:I_CSET", "LS1_BTS:PSQ_D2029:I_CSET", "LS1_BTS:PSQ_D2042:I_CSET", "LS1_BTS:PSQ_D2066:I_CSET", "LS1_BTS:PSQ_D2073:I_CSET", "LS1_BTS:PSQ_D2118:I_CSET", "LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2013:I_RD", "LS1_BTS:PSQ_D2029:I_RD", "LS1_BTS:PSQ_D2042:I_RD", "LS1_BTS:PSQ_D2066:I_RD", "LS1_BTS:PSQ_D2073:I_RD", "LS1_BTS:PSQ_D2118:I_RD", "LS1_BTS:PSQ_D2126:I_RD"],
+        "put_pv_valll": [[103.69, 103.69, 103.69, 103.69, 103.69, 103.69, 103.69],
+                        [75.66, 82.06, 88.46, 94.85, 101.23, 107.59, 113.95],
+                        [50.06, 50.06, 50.06, 50.06, 50.06, 50.06, 50.06],
+                        [58.58, 57.39, 58.75, 60.46, 61.82, 63.19, 64.98],
+                        [62.93, 63.36, 68.14, 71.73, 73.01, 73.69, 74.29],
+                        [49.3, 55, 58.5, 57.22, 52.96, 46.92, 38.95],
+                        [39.54, 50.40, 56.71, 53.21, 43.86, 32.19, 18.31]
+                        ],
+        "monitorl": ["LS1_BTS:PM_D2056"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"
+    },
+    "40Ar9+_multi_pv_scan_PM_D2056(Kei)_yrms_20190924": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS1_BTS:PSQ_D2013:I_CSET", "LS1_BTS:PSQ_D2029:I_CSET", "LS1_BTS:PSQ_D2042:I_CSET", "LS1_BTS:PSQ_D2066:I_CSET", "LS1_BTS:PSQ_D2073:I_CSET", "LS1_BTS:PSQ_D2118:I_CSET", "LS1_BTS:PSQ_D2126:I_CSET"], 
+        "get_pv_name": ["LS1_BTS:PSQ_D2013:I_RD", "LS1_BTS:PSQ_D2029:I_RD", "LS1_BTS:PSQ_D2042:I_RD", "LS1_BTS:PSQ_D2066:I_RD", "LS1_BTS:PSQ_D2073:I_RD", "LS1_BTS:PSQ_D2118:I_RD", "LS1_BTS:PSQ_D2126:I_RD"],
+        "put_pv_valll": [[71.39, 77.79, 84.19, 90.59, 96.97, 103.35, 109.71],
+                        [86.75, 86.75, 86.75, 86.75, 86.75, 86.75, 86.75],
+                        [24.73, 24.73, 24.73, 24.73, 24.73, 24.73, 24.73],
+                        [52.02, 48.79, 49.81, 63.87, 69.34, 70.79, 71.39],
+                        [68.31, 71.39, 72.33, 77.53, 77.11, 77.11, 76.77],
+                        [51.93, 61.57, 66.26, 67.71, 61.99, 56.11, 46.64],
+                        [55.85, 65.84, 67.63, 68.31, 62.34, 58.84, 55.26]
+                        ],
+        "monitorl": ["LS1_BTS:PM_D2056"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"LS1"	
+    },
+    "#40Ar9+_multi_pv_scan_PM_D2385(Kei)_xrms_20190924": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET", "FS1_CSS:PSQ_D2362:I_CSET", "FS1_CSS:PSQ_D2372:I_CSET", "FS1_CSS:PSQ_D2377:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD", "FS1_CSS:PSQ_D2362:I_RD", "FS1_CSS:PSQ_D2372:I_RD", "FS1_CSS:PSQ_D2377:I_RD"],
+        "put_pv_valll": [[34.81, 37.76, 40.72, 43.69, 46.66, 49.64, 52.62],
+                        [51.85, 51.85, 51.85, 51.85, 51.85, 51.85, 51.85],
+                        [19.89, 19.89, 19.89, 19.89, 19.89, 19.89, 19.89],
+                        [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
+                        ],
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":20.0,
+	"Location":"FS1"	
+    },
+    "#40Ar18+_multi_pv_scan_PM_D2385(Kei)_yrms_20190924": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET", "FS1_CSS:PSQ_D2362:I_CSET", "FS1_CSS:PSQ_D2372:I_CSET", "FS1_CSS:PSQ_D2377:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD", "FS1_CSS:PSQ_D2362:I_RD", "FS1_CSS:PSQ_D2372:I_RD", "FS1_CSS:PSQ_D2377:I_RD"],
+        "put_pv_valll": [[40.13, 40.13, 40.13, 40.13, 40.13, 40.13, 40.13],
+                    [48.36, 51.17, 54.06, 56.88, 59.69, 62.59, 65.41],
+                    [19.89, 19.89, 19.89, 19.89, 19.89, 19.89, 19.89],
+                    [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.05]
+                    ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "18/40",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "#40Ar18+_multi_pv_scan_PM_D2385(Kei)_xrms_yrms_20190409": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET","FS1_BTS:PSQ_D2409:I_CSET","FS1_BTS:PSQ_D2413:I_CSET","FS1_BTS:PSQ_D2421:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD","FS1_BTS:PSQ_D2409:I_RD","FS1_BTS:PSQ_D2413:I_RD","FS1_BTS:PSQ_D2421:I_RD"], 
+        "put_pv_valll": [[25.09, 30.1, 35.21, 40.22, 45.24, 50.35, 55.36],
+                         [42.56, 46.63, 48.96, 0.0, 0.0, 0.0, 0.0],
+                         [0.0, 0.0, 0.0, 50.35, 22.49, 0.0, 0.0],
+                         [145.05, 65.88, 63.34, 68.71, 34.4, 41.85, 38.64]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "18/40",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "#40Ar9+_multi_pv_scan_mebt_xy_cor_20190409": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_MEBT:PSC2_D1062:I_CSET","FE_MEBT:PSC1_D1062:I_CSET"], 
+        "get_pv_name": ["FE_MEBT:PSC2_D1062:I_RD","FE_MEBT:PSC1_D1062:I_RD"], 
+        "put_pv_valll": [[-15, -15, -15, -15, -15, -13.5, -13.5, -13.5, -13.5, -13.5, -12, -12, -12, -12, -12, -10.5, -10.5, -10.5, -10.5, -10.5, -9, -9, -9, -9, -9],
+                         [7, 8.5, 10, 11.5, 13, 7, 8.5, 10, 11.5, 13, 7, 8.5, 10, 11.5, 13, 7, 8.5, 10, 11.5, 13, 7, 8.5, 10, 11.5, 13]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "9/40",
+	"E":0.5,
+	"Location":"MEBT"
+    },
+    "#Ne6+_multi_pv_scan_PM_D2385(Kei)_xrms_yrms_20190411": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET","FS1_BTS:PSQ_D2409:I_CSET","FS1_BTS:PSQ_D2413:I_CSET","FS1_BTS:PSQ_D2421:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD","FS1_BTS:PSQ_D2409:I_RD","FS1_BTS:PSQ_D2413:I_RD","FS1_BTS:PSQ_D2421:I_RD"], 
+        "put_pv_valll": [[37.63, 45.16, 52.815, 60.34, 67.86, 75.517, 83.05],
+                         [63.84, 69.9375 , 73.44, 0, 0, 0, 0],
+                         [0, 0, 0, 75.5175, 33.735, 0, 0],
+                         [67.57, 98.82, 95.00, 103.06, 51.6, 62.7675, 57.97]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "6/20",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "#Ne10+_multi_pv_scan_PM_D2385(Kei)_xrms_yrms_20190411": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_CSS:PSQ_D2356:I_CSET","FS1_BTS:PSQ_D2409:I_CSET","FS1_BTS:PSQ_D2413:I_CSET","FS1_BTS:PSQ_D2421:I_CSET"], 
+        "get_pv_name": ["FS1_CSS:PSQ_D2356:I_RD","FS1_BTS:PSQ_D2409:I_RD","FS1_BTS:PSQ_D2413:I_RD","FS1_BTS:PSQ_D2421:I_RD"], 
+        "put_pv_valll": [[22.5765, 27.0945, 31.689 , 36.2025, 40.716 , 45.3105, 49.83],
+                         [38.3, 41.96, 44.06, 0.0, 0.0, 0.0, 0.0],
+                         [0.0, 0.0, 0.0, 45.31, 20.24, 0.0, 0.0],
+                         [40.545 , 59.3 , 57.00, 61.84, 30.96, 37.66, 34.78]
+                         ], 
+        "monitorl": ["FS1_CSS:PM_D2385"],
+	"qA_ratio": "10/20",
+	"E":20.0,
+	"Location":"FS1"
+    },
+    "#129Xe50+_FS1_2nd_straight_Qscan_xrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_BMS:PSQ_D2511:I_CSET","FS1_BMS:PSQ_D2515:I_CSET","FS1_BMS:PSQ_D2539:I_CSET","FS1_BMS:PSQ_D2563:I_CSET","FS1_BMS:PSQ_D2590:I_CSET","FS1_BMS:PSQ_D2597:I_CSET"], 
+        "get_pv_name": ["FS1_BMS:PSQ_D2511:I_RD","FS1_BMS:PSQ_D2515:I_RD","FS1_BMS:PSQ_D2539:I_RD","FS1_BMS:PSQ_D2563:I_RD","FS1_BMS:PSQ_D2590:I_RD","FS1_BMS:PSQ_D2597:I_RD"], 
+        "put_pv_valll": [[50.0, 50.0, 50.0, 50.0, 50.0], 
+                         [53.0, 53.0, 53.0, 53.0, 53.0],
+			 [0.0, 4.0, 8.0, 12.0, 16.0],
+                         [0.0, 0.0, 0.0, 0.0, 0.0], 
+                         [0.0, 0.0, 0.0, 0.0, 0.0], 
+                         [0.0, 0.0, 0.0, 0.0, 0.0]
+			],
+        "monitorl": ["FS1_BMS:PM_D2602"],
+	"qA_ratio": "50/129",
+	"E":17.0,
+	"Location":"FS1"
+    },
+    "#129Xe50+_FS1_2nd_straight_Qscan_yrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_BMS:PSQ_D2539:I_CSET","FS1_BMS:PSQ_D2563:I_CSET"], 
+        "get_pv_name": ["FS1_BMS:PSQ_D2539:I_RD","FS1_BMS:PSQ_D2563:I_RD"],
+        "put_pv_valll": [[13.0, 13.0, 13.0, 13.0, 13.0, 13.0],
+                         [0.0, 6.0, 12.0, 18.0, 24.0, 30.0]
+                         ], 
+        "monitorl": ["FS1_BMS:PM_D2602"],
+	"qA_ratio": "50/129",
+	"E":17.0,
+	"Location":"FS1"
+    },
+    "LS2 injection: PM_D2602 (129Xe50+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS1_BMS:PSQ_D2511:I_CSET","FS1_BMS:PSQ_D2515:I_CSET","FS1_BMS:PSQ_D2539:I_CSET","FS1_BMS:PSQ_D2563:I_CSET","FS1_BMS:PSQ_D2590:I_CSET","FS1_BMS:PSQ_D2597:I_CSET"], 
+        "get_pv_name": ["FS1_BMS:PSQ_D2511:I_RD","FS1_BMS:PSQ_D2515:I_RD","FS1_BMS:PSQ_D2539:I_RD","FS1_BMS:PSQ_D2563:I_RD","FS1_BMS:PSQ_D2590:I_RD","FS1_BMS:PSQ_D2597:I_RD"], 
+        "put_pv_valll": [[50.0, 50.0, 50.0, 50.0, 50.0, 45.8, 45.8, 45.8, 45.8, 45.8, 45.8], 
+                         [53.0, 53.0, 53.0, 53.0, 53.0, 55.3, 55.3, 55.3, 55.3, 55.3, 55.3],
+			 [0.0, 4.0, 8.0, 12.0, 16.0, 13.0, 13.0, 13.0, 13.0, 13.0, 13.0],
+                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.0, 12.0, 18.0, 24.0, 30.0], 
+                         [0.0, 0.0, 0.0, 0.0, 0.0, 41.6, 41.6, 41.6, 41.6, 41.6, 41.6], 
+                         [0.0, 0.0, 0.0, 0.0, 0.0, 38.5, 38.5, 38.5, 38.5, 38.5, 38.5]
+			],
+        "monitorl": ["FS1_BMS:PM_D2602"],
+	"qA_ratio": "50/129",
+	"E":17.0,
+	"Location":"FS1"
+    },
+    "(Optional) FS2 injection: PM_D3959 (129Xe50+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BTS:PSQ_D3934:I_CSET","FS2_BTS:PSQ_D3940:I_CSET","FS2_BTS:PSQ_D3950:I_CSET","FS2_BTS:PSQ_D3955:I_CSET","FS2_BTS:PSQ_D3994:I_CSET","FS2_BTS:PSQ_D4000:I_CSET"],
+        "get_pv_name": ["FS2_BTS:PSQ_D3934:I_RD","FS2_BTS:PSQ_D3940:I_RD","FS2_BTS:PSQ_D3950:I_RD","FS2_BTS:PSQ_D3955:I_RD","FS2_BTS:PSQ_D3994:I_RD","FS2_BTS:PSQ_D4000:I_RD"],
+	"put_pv_valll": [[0.0, 42.0, 84.0, 126.0, 168.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [25.0, 25.0, 25.0, 25.0, 25.0, 0.0, 42.0, 84.0, 126.0, 168.0],
+			 [75.0, 75.0, 75.0, 75.0, 75.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0],
+			 [48.0, 48.0, 48.0, 48.0, 48.0, 48.0, 48.0, 48.0, 48.0, 48.0],
+			 [75.0, 75.0, 75.0, 75.0, 75.0, 47.0, 47.0, 47.0, 47.0, 47.0]
+			],
+        "monitorl": ["FS2_BTS:PM_D3959"],
+	"qA_ratio": "50/129",
+	"E":180.0,
+	"Location":"LS2"
+    },
+    "#129Xe50+_FS2_Qscan_xrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BTS:PSQ_D3934:I_CSET","FS2_BTS:PSQ_D3940:I_CSET","FS2_BTS:PSQ_D3950:I_CSET","FS2_BTS:PSQ_D3955:I_CSET","FS2_BTS:PSQ_D3994:I_CSET","FS2_BTS:PSQ_D4000:I_CSET"],
+        "get_pv_name": ["FS2_BTS:PSQ_D3934:I_RD","FS2_BTS:PSQ_D3940:I_RD","FS2_BTS:PSQ_D3950:I_RD","FS2_BTS:PSQ_D3955:I_RD","FS2_BTS:PSQ_D3994:I_RD","FS2_BTS:PSQ_D4000:I_RD"],
+	"put_pv_valll": [[0.0, 42.0, 84.0, 126.0, 168.0],
+			 [25.0, 25.0, 25.0, 25.0, 25.0],
+			 [75.0, 75.0, 75.0, 75.0, 75.0],
+			 [60.0, 60.0, 60.0, 60.0, 60.0],
+			 [48.0, 48.0, 48.0, 48.0, 48.0],
+			 [75.0, 75.0, 75.0, 75.0, 75.0]
+			],
+        "monitorl": ["FS2_BTS:PM_D3959"],
+	"qA_ratio": "50/129",
+	"E":180.0,
+	"Location":"LS2"
+    },
+    "#129Xe50+_FS2_Qscan_yrms": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BTS:PSQ_D3934:I_CSET","FS2_BTS:PSQ_D3940:I_CSET","FS2_BTS:PSQ_D3950:I_CSET","FS2_BTS:PSQ_D3955:I_CSET","FS2_BTS:PSQ_D3994:I_CSET","FS2_BTS:PSQ_D4000:I_CSET"],
+        "get_pv_name": ["FS2_BTS:PSQ_D3934:I_RD","FS2_BTS:PSQ_D3940:I_RD","FS2_BTS:PSQ_D3950:I_RD","FS2_BTS:PSQ_D3955:I_RD","FS2_BTS:PSQ_D3994:I_RD","FS2_BTS:PSQ_D4000:I_RD"],
+	"put_pv_valll": [[0.0, 0.0, 0.0, 0.0, 0.0],
+			 [0.0, 42.0, 84.0, 126.0, 168.0],
+			 [0.0, 0.0, 0.0, 0.0, 0.0],
+			 [60.0, 60.0, 60.0, 60.0, 60.0],
+			 [48.0, 48.0, 48.0, 48.0, 48.0],
+			 [47.0, 47.0, 47.0, 47.0, 47.0]
+			],
+        "monitorl": ["FS2_BTS:PM_D3959"],
+	"qA_ratio": "50/129",
+	"E":180.0,
+	"Location":"LS2"
+    },
+    "LS3 injection: PM_D4222 (129Xe50+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BMS:PSQ_D4172:I_CSET", "FS2_BMS:PSQ_D4226:I_CSET", "FS2_BMS:PSQ_D4296:I_CSET", "FS2_BMS:PSQ_D4286:I_CSET"],
+        "get_pv_name": ["FS2_BMS:PSQ_D4172:I_RD", "FS2_BMS:PSQ_D4226:I_RD", "FS2_BMS:PSQ_D4296:I_RD", "FS2_BMS:PSQ_D4286:I_RD"],
+	"put_pv_valll": [[50.6, 67.5, 84.3, 101.2, 118.1, 134.9, 151.8],
+			 [107.3, 107.8, 104.5, 96.9, 94.7, 95.1, 96.1],
+			 [54.2, 64.8, 71.8, 67.2, 61.3, 57.2, 54.2],
+			 [62.6, 70.3, 76.1, 75.1, 72.4, 69.9, 68.1]
+			],
+        "monitorl": ["FS2_BMS:PM_D4222"],
+	"qA_ratio": "50/124",
+	"E":182.0,
+	"Location":"LS2"
+    },
+    "LS3 injection: PM_D4222 (238U75+) Added 2024/10/4": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BMS:PSQ_D4151:I_CSET", "FS2_BMS:PSQ_D4156:I_CSET", "FS2_BMS:PSQ_D4166:I_CSET", "FS2_BMS:PSQ_D4172:I_CSET", "FS2_BMS:PSQ_D4218:I_CSET", "FS2_BMS:PSQ_D4226:I_CSET"],
+        "get_pv_name": ["FS2_BMS:PSQ_D4151:I_RD", "FS2_BMS:PSQ_D4156:I_RD", "FS2_BMS:PSQ_D4166:I_RD", "FS2_BMS:PSQ_D4172:I_RD", "FS2_BMS:PSQ_D4218:I_RD", "FS2_BMS:PSQ_D4226:I_RD"],
+	"put_pv_valll": [[0.0, 0.0, 0.0, 0.0, 0.0, 35.3, 35.3, 35.3, 35.3, 35.3],
+			 [54.2, 54.2, 54.2, 54.2, 54.2, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [0.0, 0.0, 0.0, 0.0, 0.0, 38.0, 56.8, 75.5, 94.3, 113],
+			 [42.0, 59.0, 76.0, 93.0, 110.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+			],
+        "monitorl": ["FS2_BMS:PM_D4222"],
+	"qA_ratio": "75/238",
+	"E":132.54,
+	"Location":"LS2"
+    },
+    "LS3 injection: PM_D4222 (238U77+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FS2_BMS:PSQ_D4166:I_CSET", "FS2_BMS:PSQ_D4172:I_CSET", "FS2_BMS:PSQ_D4218:I_CSET"],
+        "get_pv_name": ["FS2_BMS:PSQ_D4166:I_RD", "FS2_BMS:PSQ_D4172:I_RD", "FS2_BMS:PSQ_D4218:I_RD"],
+	"put_pv_valll": [[36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 36.9, 16.0, 56.0, 60.0, 80.0, 100],
+			 [0.0, 50.6, 67.5, 84.3, 101.2, 118.1, 134.9, 159.302, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+			],
+        "monitorl": ["FS2_BMS:PM_D4222"],
+	"qA_ratio": "77/238.0",
+	"E":132.0,
+	"Location":"LS2"
+    },
+    "(Optional) LS3_BTS injection: PM_D4771 (86Kr34+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS3_BTS:PSQ_D4713:I_CSET", "LS3_BTS:PSQ_D4718:I_CSET", "LS3_BTS:PSQ_D4755:I_CSET", "LS3_BTS:PSQ_D4760:I_CSET", "LS3_BTS:PSQ_D4783:I_CSET", "LS3_BTS:PSQ_D4806:I_CSET", "LS3_BTS:PSQ_D4845:I_CSET", "LS3_BTS:PSQ_D4868:I_CSET", "LS3_BTS:PSQ_D4907:I_CSET"],
+        "get_pv_name": ["LS3_BTS:PSQ_D4713:I_RD", "LS3_BTS:PSQ_D4718:I_RD", "LS3_BTS:PSQ_D4755:I_RD", "LS3_BTS:PSQ_D4760:I_RD", "LS3_BTS:PSQ_D4783:I_RD", "LS3_BTS:PSQ_D4806:I_RD", "LS3_BTS:PSQ_D4845:I_RD", "LS3_BTS:PSQ_D4868:I_RD", "LS3_BTS:PSQ_D4907:I_RD"],
+	"put_pv_valll": [[75.39, 75.39, 75.39, 75.39, 75.39, 75.39, 75.39, 75.39, 75.39, 185.51, 168.65, 151.78, 134.92, 118.05, 101.19, 84.32, 67.46, 50.59, 33.73],
+			 [33.73, 50.59, 67.46, 84.32, 101.19, 118.05, 134.92, 151.78, 168.65, 122.61, 122.61, 122.61, 122.61, 122.61, 122.61, 122.61, 122.61, 122.61, 122.61],
+			 [132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30, 132.30],
+			 [106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42, 106.42],
+			 [59.61, 57.92, 64.54, 82.00, 93.61, 91.14, 81.14, 73.20, 66.31, 44.96, 56.74, 57.55, 73.58, 86.70, 83.83, 93.81, 84.57, 75.56, 66.71],
+			 [63.28, 63.83, 63.79, 64.83, 68.30, 67.59, 64.97, 58.19, 50.53, 57.70, 59.15, 59.91, 63.31, 66.43, 67.82, 67.46, 71.64, 52.19, 40.31],
+			 [96.21, 95.65, 88.89, 84.55, 86.42, 93.43, 99.48, 107.02, 120.23, 106.74, 89.60, 87.37, 83.14, 83.04, 85.25, 92.55, 97.55, 104.05, 106.99],
+			 [59.97, 60.65, 62.55, 63.18, 63.32, 67.54, 72.47, 74.04, 74.72, 46.99, 51.17, 52.25, 54.38, 65.02, 58.68, 65.65, 73.58, 73.02, 70.33],
+			 [106.50, 98.02, 102.72, 103.27, 88.32, 86.54, 89.00, 87.81, 82.86, 79.85, 101.39, 97.45, 103.21, 94.97, 79.99, 87.20, 86.82, 85.78, 79.31]
+			],
+        "monitorl": ["LS3_BTS:PM_D4771"],
+	"qA_ratio": "34/86",
+	"E":165.1,
+	"Location":"LS3"
+    },
+    "#129Xe50+_LS3_BTS_entrance_Qscan_xyrms (old)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["LS3_BTS:PSQ_D4713:I_CSET", "LS3_BTS:PSQ_D4718:I_CSET", "LS3_BTS:PSQ_D4783:I_CSET", "LS3_BTS:PSQ_D4806:I_CSET", "LS3_BTS:PSQ_D4845:I_CSET", "LS3_BTS:PSQ_D4868:I_CSET", "LS3_BTS:PSQ_D4907:I_CSET"],
+        "get_pv_name": ["LS3_BTS:PSQ_D4713:I_RD", "LS3_BTS:PSQ_D4718:I_RD", "LS3_BTS:PSQ_D4783:I_RD", "LS3_BTS:PSQ_D4806:I_RD", "LS3_BTS:PSQ_D4845:I_RD", "LS3_BTS:PSQ_D4868:I_RD", "LS3_BTS:PSQ_D4907:I_RD"],
+	"put_pv_valll": [[72.3, 72.3, 72.3, 72.3, 72.3, 72.3, 72.3, 72.3, 168.7, 151.8, 134.9, 118.1, 101.2, 84.3, 67.5, 50.6, 33.7],
+			 [50.6, 67.5, 84.3, 101.2, 118.1, 134.9, 151.8, 168.6, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+			 [59.9, 62.4, 61.4, 75.0, 83.9, 87.7, 83.2, 79.2, 54.1, 53.3, 58.5, 57.1, 73.3, 81.1, 87.2, 86.3, 82.7],
+			 [75.5, 70.8, 66.2, 60.0, 60.6, 64.3, 66.0, 67.0, 71.4, 70.2, 69.1, 67.1, 65.4, 62.1, 61.5, 63.8, 66.0],
+			 [115.2, 108.6, 99.8, 94.0, 86.8, 101.8, 107.6, 120.2, 106.5, 107.6, 103.6, 97.4, 94.3, 91.9, 91.4, 96.6, 99.7],
+			 [63.2, 69.1, 71.0, 69.5, 61.3, 57.5, 52.0, 49.0, 35.5, 49.7, 59.3, 63.2, 67.5, 66.4, 59.7, 52.0, 41.3],
+			 [82.0, 98.7, 97.1, 99.8, 83.1, 78.7, 71.5, 72.4, 74.4, 84.7, 101.6, 100.7, 104.6, 95.1, 82.9, 76.7, 71.1]
+			],
+        "monitorl": ["LS3_BTS:PM_D4771"],
+	"qA_ratio": "50/124",
+	"E":212.5,
+	"Location":"LS3"
+    },
+    "BDS injection: PM_D5567 (124Xe50+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["BDS_BTS:PSQ_D5501:I_CSET","BDS_BTS:PSQ_D5509:I_CSET"],
+        "get_pv_name": ["BDS_BTS:PSQ_D5501:I_RD","BDS_BTS:PSQ_D5509:I_RD"],
+	"put_pv_valll": [[86.4, 86.4, 86.4, 86.4, 86.4, 177.1, 143.4, 109.6, 75.9, 42.2],
+			 [67.5, 92.8, 118.1, 143.4, 168.7, 95.5, 95.5, 95.5, 95.5, 95.5]
+			],
+        "monitorl": ["BDS_BTS:PM_D5567"],
+	"qA_ratio": "50/124",
+	"E":212.5,
+	"Location":"LS3"
+    },
+    "(Optional) Target injection: PM_D5792 (86Kr34+)": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["BDS_FFS:PSQ_D5750:I_CSET","BDS_FFS:PSQ_D5757:I_CSET","BDS_FFS:PSQ_D5777:I_CSET","BDS_FFS:PSQ_D5784:I_CSET","BDS_FFS:PSQ_D5815:I_CSET","BDS_FFS:PSQ_D5821:I_CSET"],
+        "get_pv_name": ["BDS_FFS:PSQ_D5750:I_RD","BDS_FFS:PSQ_D5757:I_RD","BDS_FFS:PSQ_D5777:I_RD","BDS_FFS:PSQ_D5784:I_RD","BDS_FFS:PSQ_D5815:I_RD","BDS_FFS:PSQ_D5821:I_RD"],
+	"put_pv_valll": [[160.26, 160.26, 160.26, 160.26, 160.26, 160.26, 160.26, 160.26],
+			 [165.93, 165.93, 165.93, 165.93, 165.93, 165.93, 165.93, 165.93],
+			 [33.73, 50.59, 67.46, 84.32, 101.19, 118.05, 134.92, 151.78],
+			 [0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02],
+			 [147.22, 148.76, 146.94, 143.67, 139.72, 134.52, 127.49, 116.33],
+			 [237.00, 243.27, 246.65, 244.18, 241.36, 237.73, 232.11, 220.53]
+			],
+        "monitorl": ["BDS_FFS:PM_D5792"],
+	"qA_ratio": "34/86",
+	"E":165.1,
+	"Location":"LS3"
+    },
+	
+    "#124Xe26+_V-LEBT_scan_2": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:QE_D0871:V_CSET","FE_LEBT:QE_D0874:V_CSET","FE_LEBT:QE_D0878:V_CSET"],
+        "get_pv_name": ["FE_LEBT:QE_D0871:V_RD","FE_LEBT:QE_D0874:V_RD","FE_LEBT:QE_D0878:V_RD"],
+	"put_pv_valll": [[2658.2, 658.2, 1658.2, 3658.2, 2658.2, 2658.2, 2658.2, 2658.2, 2658.2, 2658.2],
+			 [-3286.1, -3286.1, -3286.1, -3286.1, -4286.1, -2286.1, -1286.1, -3286.1, -3286.1, -3286.1],
+			 [596.5, 596.5, 596.5, 596.5, 596.5, 596.5, 596.5, 0.0, 1596.5, 2596.5]
+			],
+        "monitorl": ["FE_LEBT:PM_D0885"],
+	"qA_ratio": "26/124",
+	"E":0.012,
+	"Location":"LEBT"	
+    },
+    "#124Xe26+_V-LEBT_scan_3": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:QE_D0891:V_CSET","FE_LEBT:QE_D0895:V_CSET","FE_LEBT:QE_D0898:V_CSET"],
+        "get_pv_name": ["FE_LEBT:QE_D0891:V_RD","FE_LEBT:QE_D0895:V_RD","FE_LEBT:QE_D0898:V_RD"],
+	"put_pv_valll": [[0.0, 596.5, 1200, 1800,596.5,596.5,596.5,596.5,596.5,596.5,596.5,596.5],
+			 [-3286.1,-3286.1,-3286.1,-3286.1, -2086.1, -2886.1, -3686.1, -4486.1, -3286.1,-3286.1,-3286.1,-3286.1],
+			 [2658.2,2658.2,2658.2,2658.2,2658.2,2658.2,2658.2,2658.2, 1458.2, 2258.2, 3058.2, 3858.2]
+			],
+        "monitorl": ["FE_LEBT:PM_D0912"],
+	"qA_ratio": "26/124",
+	"E":0.012,
+	"Location":"LEBT"	
+    },
+    "#scan_for_new_LEBT_scan_20210225": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_LEBT:DCV_D0773:I_CSET","FE_LEBT:DCH_D0790:I_CSET","FE_LEBT:DCV_D0790:I_CSET"],
+        "get_pv_name": ["FE_LEBT:DCV_D0773:I_RD","FE_LEBT:DCH_D0790:I_RD","FE_LEBT:DCV_D0790:I_RD"],
+	"put_pv_valll": [[-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4,-4,-2,0,2,4],
+			 [-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,0,0,0,0,0,2,2,2,2,2,4,4,4,4,4,-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,0,0,0,0,0,2,2,2,2,2,4,4,4,4,4,-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,0,0,0,0,0,2,2,2,2,2,4,4,4,4,4,-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,0,0,0,0,0,2,2,2,2,2,4,4,4,4,4,-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,0,0,0,0,0,2,2,2,2,2,4,4,4,4,4],
+			 [-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-4,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]
+			],
+        "monitorl": ["FE_LEBT:BCM_D0989","FE_MEBT:BCM_D1055","FE_MEBT:FC_D1102"],
+	"qA_ratio": "30/208",
+	"E":0.012,
+	"Location":"LEBT"	
+    },
+    "test": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": [["FE_SCS2:PSQ2_D0746:V_CSET","FE_SCS2:PSQ1_D0746:V_CSET"],["FE_SCS2:PSQ2_D0749:V_CSET","FE_SCS2:PSQ1_D0749:V_CSET"]],
+        "get_pv_name": [["FE_SCS2:PSQ2_D0746:V_RD","FE_SCS2:PSQ1_D0746:V_RD"],["FE_SCS2:PSQ2_D0749:V_RD","FE_SCS2:PSQ1_D0749:V_RD"]],
+	"put_pv_valll": [[-505.4, -520],
+			 [586.5, 586.6]
+			],
+        "monitorl": ["FE_SCS2:PM_D0752"],
+	"qA_ratio": "33/238",
+	"E":0.012,
+	"Location":"LEBT"	
+    },
+    "test2": {
+        "sequence": "pv_scan",
+        "option": "multi_pv_scan",
+        "put_pv_name": ["FE_SCS2:PSQ2_D0746:V_CSET","FE_SCS2:PSQ1_D0746:V_CSET","FE_SCS2:PSQ2_D0749:V_CSET","FE_SCS2:PSQ1_D0749:V_CSET"],
+        "get_pv_name": ["FE_SCS2:PSQ2_D0746:V_RD","FE_SCS2:PSQ1_D0746:V_RD","FE_SCS2:PSQ2_D0749:V_RD","FE_SCS2:PSQ1_D0749:V_RD"],
+	"put_pv_valll": [[-510.0, -520.0],
+			 [510.0, 520.0],
+			 [580.0, 590.0],
+			 [-580.0, -590.0]
+			],
+        "monitorl": ["FE_SCS2:PM_D0752"],
+	"qA_ratio": "33/238",
+	"E":0.012,
+	"Location":"LEBT"	
+    }
+}

@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from collections import namedtuple  # Import namedtuple
 import matplotlib.pyplot as plt
 
-Result = namedtuple('Result', ['x', 'fun', 'all_fun','history'])
+Result = namedtuple('Result', ['x', 'fun', 'losses', 'weighted_losses', 'history','success'])
 
 def run_torch_optimizer(
     loss_func: callable, 
@@ -12,7 +12,7 @@ def run_torch_optimizer(
     lr: float = 0.01,
     optimizer_cls  = torch.optim.Adam,
     optimizer_kwargs: Optional[Dict[str, Any]] = None,
-    max_iter: int = 200, 
+    max_iter: int = 300, 
     loss_weights: Optional[Dict[str, float]] = None, 
     low_fidelity_loss_func: Optional[callable] = None,
     patience: Optional[int] = None, 
@@ -59,8 +59,8 @@ def run_torch_optimizer(
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, 
                                                     max_lr=lr,
                                                     div_factor=5,
-                                                    pct_start=0.05, 
-                                                    final_div_factor=10,
+                                                    pct_start=0.1, 
+                                                    final_div_factor=5,
                                                     epochs=max_iter, steps_per_epoch=1)
     
 
@@ -69,14 +69,14 @@ def run_torch_optimizer(
     optimizer.zero_grad()
     losses = loss_func(x0)
 
+
     if loss_weights is None:
         loss_weights = {}
     loss_weights = {k: loss_weights.get(k, 1.0) for k in losses.keys()}
     
-    weighted_losses = torch.stack([loss_weights[k] * losses[k] for k in losses.keys()])
+    weighted_losses = torch.stack([loss_weights[k] * v for k, v in losses.items() if v is not None])
     batched_loss = torch.sum(weighted_losses,dim=0)
-    with torch.no_grad():
-        reg_loss = (batched_loss - weighted_losses[0]).max()
+    reg_loss = (batched_loss - weighted_losses[0]).max()
     loss = batched_loss.mean()
 
     best_losses = batched_loss.detach().clone()
@@ -86,13 +86,15 @@ def run_torch_optimizer(
     loss_history = [best_loss]
     
     if return_history:
-        hist = {k: [v.detach().cpu().numpy()] for k, v in losses.items()}
+        hist = {k: [v.detach().cpu().numpy()] for k, v in losses.items()  if v is not None}
     else:
         hist = None
 
     if torch.isnan(loss) or torch.isinf(loss) or loss.item() > 1e2:
         print(f"Exiting early at iteration {iter_num + 1} due to large loss")
-        return Result(x=best_sol, fun=best_losses, all_fun=weighted_losses, history=hist)
+        return Result(x=best_sol, fun=best_losses, 
+                      losses=losses, weighted_losses=weighted_losses, 
+                      history=hist, success=False)
 
     loss.backward()
     optimizer.step()
@@ -102,20 +104,21 @@ def run_torch_optimizer(
     for iter_num in range(1, max_iter):
         optimizer.zero_grad()
 
-        if low_fidelity_loss_func and reg_loss <= 0 and iter_num % 2 == 0:
+        if low_fidelity_loss_func and reg_loss <= 1e-6 and iter_num % 2 == 0:
             losses = low_fidelity_loss_func(x0)
         else:
             losses = loss_func(x0)
 
-        weighted_losses = torch.stack([loss_weights[k] * losses[k] for k in losses.keys()])
+        weighted_losses = torch.stack([loss_weights[k] * v for k, v in losses.items() if v is not None])
         batched_loss = torch.sum(weighted_losses,dim=0)
-        with torch.no_grad():
-            reg_loss = (batched_loss - weighted_losses[0]).max()
+        reg_loss = (batched_loss - weighted_losses[0]).max()
         loss = batched_loss.mean()
         
         if torch.isnan(loss) or torch.isinf(loss) or reg_loss.item() > 1e2:
             print(f"Exiting early at iteration {iter_num + 1} due to large loss")
-            return Result(x=best_sol, fun=best_losses, all_fun=weighted_losses, history=hist)
+            return Result(x=best_sol, fun=best_losses, 
+                          losses=losses, weighted_losses=weighted_losses, 
+                          history=hist, success=False)
         
         # if loss.item() > 1e1:
             # print("loss too large. gradient clipped")
@@ -128,7 +131,8 @@ def run_torch_optimizer(
 
         if return_history:
             for k, v in losses.items():
-                hist[k].append(v.detach().cpu().numpy())
+                if v is not None:
+                    hist[k].append(v.detach().cpu().numpy())
 
         # Update best solution if current loss is lower
         if loss.item() < best_loss:
@@ -151,7 +155,9 @@ def run_torch_optimizer(
     if plot_history:
         plot_loss_history(hist)
     
-    return Result(x=best_sol, fun=best_losses, all_fun=weighted_losses, history=hist)
+    return Result(x=best_sol, fun=best_losses, 
+                  losses=losses, weighted_losses=weighted_losses, 
+                  history=hist, success=True)
     
 
 

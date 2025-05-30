@@ -9,8 +9,6 @@ import pandas as pd
 import numpy as np
 import click
 from epics import PV, caget, caput, get_pv
-from epics.ca import CAThread
-from epics.exceptions import ChannelAccessException
 
 _epics_imported = True
 

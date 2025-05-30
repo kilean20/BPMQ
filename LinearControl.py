@@ -1,4 +1,7 @@
 import numpy as np
+import pandas as pd
+import time
+import datetime
 from copy import deepcopy as copy
 from scipy import optimize
 from typing import List, Dict, Optional, Tuple, Callable
@@ -97,6 +100,7 @@ class LinearControl:
                  output_RDs,
                  ):
         
+        self.input_dim = len(x0)
         self.x0 = np.array(x0)
         self.dx = np.array(dx)
         self.xmin = np.array(xmin)
@@ -108,7 +112,7 @@ class LinearControl:
         self.evaluator  = evaluator
         self.input_RDs  = input_RDs
         self.output_RDs = output_RDs
-        self.l_evaluated_data = []
+        self.eval_dfs = []
         
         
     def train_model(self, weights_each_sample=None, num_restarts=20, emphasis_recent_data=True, **scipy_optimize_kwargs):
@@ -128,13 +132,13 @@ class LinearControl:
     def _evaluate(self,x):
         future = self.evaluator.submit(x)
         df,_ = self.evaluator.get_result(future)
-        self.l_evaluated_data.append(df)
+        self.eval_dfs.append(df)
         try:
             x = df[self.input_RDs].mean().values
         except:
             pass
         y = df[self.output_RDs]
-        y_err = y.std().values
+        yerr = y.std().values
         y = y.mean().values
         return x,y,yerr
     
@@ -192,9 +196,12 @@ class LinearControl:
         self.train_model()
         return x_, y_
         
-    def run(self,budget):
+    def run(self,budget=None):
         if not hasattr(self, "train_X"):
             self.initialize()
+        if budget is None:
+            budget = 2 + self.input_dim - len(self.train_X) 
+        else:
             budget = budget - len(self.train_X)
         for i in range(budget):
             x, y = self.iterate()
@@ -202,30 +209,36 @@ class LinearControl:
                  
 class LinearControl_virtual_evaluator:
     def __init__(self,
-        input_CSETs: List[str],
-        output_RDs : List[str],
-        input_bounds=None, 
-        output_bounds=None,
-        output_RDs : Optional[List[str]] = None,
-        **kws):
+                 input_CSETs: List[str],
+                 output_RDs: List[str],
+                 input_bounds: Optional[List[Tuple[float, float]]] = None,
+                 output_bounds: Optional[List[Tuple[float, float]]] = None,
+                 input_RDs : Optional[List[str]] = None,
+                 **kws):
+
         self.input_dim = len(input_CSETs)
         self.output_dim = len(output_RDs)
         self.input_CSETs = input_CSETs
         self.input_RDs   = input_RDs if input_RDs is not None else input_CSETs
         self.output_RDs  = output_RDs
+        self._generate_random_model(input_bounds,output_bounds)
+
+
+    def _generate_random_model(self, input_bounds, output_bounds):
         if input_bounds is None:
-            self.train_X = np.random.randn(input_dim+1, input_dim)
+            self.train_X = np.random.randn(self.input_dim+1, self.input_dim)
         else:
             input_bounds = np.array(input_bounds)
-            self.train_X = np.random.rand(input_dim+1, input_dim)*(input_bounds[:,1]-input_bounds[:,0]) + input_bounds[:,0]
+            self.train_X = np.random.rand(self.input_dim+1, self.input_dim)*(input_bounds[:,1]-input_bounds[:,0]) + input_bounds[:,0]
         if output_bounds is None:
-            self.train_Y = np.random.randn(input_dim+1,output_dim)
+            self.train_Y = np.random.randn(self.input_dim+1,self.output_dim)
         else:
             output_bounds = np.array(output_bounds)
-            self.train_Y = np.random.rand(input_dim+1, output_dim)*(output_bounds[:,1]-output_bounds[:,0]) + output_bounds[:,0]
+            self.train_Y = np.random.rand(self.input_dim+1, self.output_dim)*(output_bounds[:,1]-output_bounds[:,0]) + output_bounds[:,0]
         
-        self.model = LinearModel(input_dim,output_dim)
+        self.model = LinearModel(self.input_dim,self.output_dim)
         self.model.train(self.train_X,self.train_Y)
+
         
     def submit(self,x,**kws):
         data = {}
@@ -243,9 +256,8 @@ class LinearControl_virtual_evaluator:
         return df, df
         
     def get_result(self,fake_future_df_df):
-        df = fake_future_df_df[0]
         # To Do 
-        return fake_future_df_df[0]
+        return fake_future_df_df
         
   
         

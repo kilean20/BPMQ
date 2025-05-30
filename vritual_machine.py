@@ -162,7 +162,7 @@ class VM:
 #                  objective_RDs_noise: Optional[List[float]] = None,
                  decision_min: Optional[List[float]] = None,
                  decision_max: Optional[List[float]] = None,
-                 fun: Optional = None,
+                 fun: Optional[Callable] = None,
                  dt: Optional[float] = 0.2,
                  fetch_data_time_span: Optional[float] = 0.2,
                  verbose: Optional[bool]  = False,
@@ -241,7 +241,7 @@ class VM:
         verbose = verbose or self._verbose
         if verbose:
             print('ramping...')
-            display(pd.DataFrame(np.array(goal).reshape(1,-1), columns=setpoint_pv))
+            display(pd.DataFrame(np.array(value).reshape(1,-1), columns=pvname))
             
         for i, pv in enumerate(self.decision_CSETs):
             if pv == pvname:
