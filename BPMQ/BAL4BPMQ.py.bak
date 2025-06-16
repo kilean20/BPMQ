@@ -54,8 +54,8 @@ _types = {'quadrupole':['QUAD','quad','quadrupole','Qaudrupole'],
           'drift':['Drift','drift','drif']}
 # _xalpha,_xbeta,_xnemit = 0.0, 4.0, 0.15*1e-6
 # _yalpha,_ybeta,_ynemit = 0.0, 4.0, 0.15*1e-6
-_xalpha,_xbeta,_xnemit = 0.0, 5.0, 0.16*1e-6
-_yalpha,_ybeta,_ynemit = 0.0, 5.0, 0.16*1e-6
+_xalpha,_xbeta,_xnemit = 0.0, 5.0, 0.2*1e-6
+_yalpha,_ybeta,_ynemit = 0.0, 5.0, 0.2*1e-6
 _cs_ref = [_xalpha,_xbeta,_xnemit,_yalpha,_ybeta,_ynemit]
 
 PSQ_D5501 = {"name":"BDS_BTS:PSQ_D5501",
@@ -135,7 +135,7 @@ def noise2cs(
     # return torch.stack([xalpha_term, xbeta_term, xnemit_term, yalpha_term, ybeta_term, ynemit_term], dim=1)
 
     # weights = torch.tensor([1.5, 0.6, 0.3, 1.5, 0.6, 0.3], device=noise.device)
-    weights = torch.tensor([1.5, 0.8, 0.3, 1.5, 0.8, 0.3], device=noise.device)
+    weights = torch.tensor([1.8, 1.0, 0.4, 1.8, 1.0, 0.4], device=noise.device)
     scaled = noise * weights
     return torch.stack([
         xalpha + scaled[:, 0],
@@ -888,8 +888,8 @@ class EnvelopeEnsembleModel:
 
         irestart = 1
         for i in range(num_restarts-1):
-            print("irestart",irestart)
-            mask = combined_losses < 0.05*(1+np.log(irestart+1))
+			print("irestart",irestart)
+            mask = combined_losses < 0.05
             if torch.sum(mask) > batch_size:
                 break
             irestart += 1
@@ -1460,8 +1460,8 @@ class BPMQscan:
     wait_before_measure: bool = False
     train_BPMQtol: Optional[List[float]] = None
     batch_size: int = 8
-    n_batch_padding_factor: int = 16
-    num_restarts: int = 5
+    n_batch_padding_factor: int = 8
+    num_restarts: int = 2
     fit_err: bool = False
     sample_model_err: bool = False
     bootstrap: bool = False
@@ -1966,11 +1966,7 @@ class BPMQscan:
             
 
     def train_model(self, train_llB2=None,train_llBPMQ=None,train_llBPMQtol=None,train_llBPMQmodelerr=None,
-                          xnemit_target=None,ynemit_target=None,
-                          train_llB2rms=None,
-                          train_llxrms=None,train_llyrms=None,
-                          train_llxrmstol=None,train_llyrmstol=None,                          
-                          fit_err=None,sample_model_err=None, bootstrap=None,
+                          xnemit_target=None,ynemit_target=None,fit_err=None,sample_model_err=None, bootstrap=None,
                           retrun_loss_ftn_4_debug=False):
         if train_llB2 is None:
             train_llB2 = self.train_llB2
@@ -1982,24 +1978,6 @@ class BPMQscan:
         
         if train_llBPMQmodelerr is None:
             train_llBPMQmodelerr = self.train_llBPMQmodelerr
-
-        if train_llBPMQmodelerr is None:
-            train_llBPMQmodelerr = self.train_llBPMQmodelerr
-
-        if train_llB2rms is None:
-            train_llB2rms = self.train_llB2rms
-
-        if train_llxrms is None:
-            train_llxrms = self.train_llxrms
-
-        if train_llyrms is None:
-            train_llyrms = self.train_llyrms
-
-        if train_llxrmstol is None:
-            train_llxrmstol = self.train_llxrmstol
-
-        if train_llyrmstol is None:
-            train_llyrmstol = self.train_llyrmstol
 
         xnemit_target = xnemit_target or self.xnemit_target
         ynemit_target = ynemit_target or self.ynemit_target
@@ -2019,9 +1997,9 @@ class BPMQscan:
         #print("sample_model_err",sample_model_err)
 
         _ = self.model.cs_reconstruct(self.i_bpms, train_llB2, train_llBPMQ, train_llBPMQtol, train_llBPMQmodelerr,
-                                  PM_i_monitors=self.i_pms, PM_llB2=train_llB2rms, 
-                                  PM_xrms_targets=train_llxrms, PM_yrms_targets=train_llyrms, 
-                                  PM_xrms_tolerances=train_llxrmstol, PM_yrms_tolerances=train_llyrmstol,
+                                  PM_i_monitors=self.i_pms, PM_llB2=self.train_llB2rms, 
+                                  PM_xrms_targets=self.train_llxrms, PM_yrms_targets=self.train_llyrms, 
+                                  PM_xrms_tolerances=self.train_llxrmstol, PM_yrms_tolerances=self.train_llyrmstol,
                                   xnemit_target=xnemit_target, ynemit_target=ynemit_target,
                                   batch_size=self.batch_size,
                                   n_batch_padding_factor=self.n_batch_padding_factor,

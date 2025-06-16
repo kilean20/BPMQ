@@ -90,7 +90,7 @@ def run_torch_optimizer(
     else:
         hist = None
 
-    if torch.isnan(loss) or torch.isinf(loss) or torch.all(weighted_losses > 2e2):
+    if torch.isnan(loss) or torch.isinf(loss) or loss.item() > 1e2:
         print(f"Exiting early at iteration {iter_num + 1} due to large loss")
         return Result(x=best_sol, fun=best_losses, 
                       losses=losses, weighted_losses=weighted_losses, 
