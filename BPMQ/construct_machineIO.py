@@ -58,6 +58,13 @@ try:
     from phantasy import caget as phantasy_caget
     from phantasy import caput as phantasy_caput
     phantasy_imported = True
+    with suppress_outputs():
+        if phantasy_caget("REA_EXP:ELMT") is not None:
+            DEFAULT_isOK_PVs = None  # Skip check if machine is REA
+            DEFAULT_isOK_vals = None
+        else:
+            DEFAULT_isOK_PVs = ["ACS_DIAG:CHP:STATE_RD"]   # is FRIB chopper on?
+            DEFAULT_isOK_vals = ["Running"]   # ACS_DIAG:CHP:STATE_RD=3 when FRIB chopper on
 except ImportError:
     logger.warning("Failed to import 'phantasy'")
     phantasy_imported = False
@@ -132,11 +139,12 @@ if epics_imported:
         tol = np.array(tol)
         goal = np.array(goal)
         extra_monitors = extra_monitors if extra_monitors is not None else []
-        pvlist = list(set(setpoint_pv + readback_pv + extra_monitors))
-        val = epics_caget_many(pvlist)
+        pvlist = list(setpoint_pv + readback_pv + extra_monitors)
+        val = np.array(epics_caget_many(pvlist))
         index = [datetime.datetime.now()]
         data = [val]
-        while time.monotonic()-t0 < timeout and np.any(np.abs(val-goal)>tol):
+        n_control = len(setpoint_pv)
+        while time.monotonic()-t0 < timeout and np.any(np.abs(val[n_control:2*n_control]-goal)>tol):
             time.sleep(sample_interval)
             val = epics_caget_many(pvlist)
             index.append(datetime.datetime.now())
@@ -166,7 +174,8 @@ class _fetch_data_wrapper:
         pvlist = list(set(pvlist))
         pvlist_expanded = pvlist + [pv for pv in self.isOK_PVs if pv not in pvlist]
         df = self.fetch_data_base(pvlist_expanded,time_span,sample_interval=sample_interval)
-        while np.any(df[self.isOK_PVs].mean().values != self.isOK_vals):
+        isOK_df = df[self.isOK_PVs]== self.isOK_vals
+        while not np.all(isOK_df):
             logger.warning(f"notOK from {self.isOK_PVs} detected during fetch_data. Re-try in 5 sec... ")
             time.sleep(5)
             df = self.fetch_data_base(pvlist_expanded,time_span,sample_interval=sample_interval)
@@ -205,10 +214,11 @@ class _ensure_set_wrapper:
                                       extra_monitors = extra_monitors_expanded,
                                       **kws,
                                       )
-        if np.any(df[self.isOK_PVs].mean().values != self.isOK_vals):
+        isOK_df = df[self.isOK_PVs]== self.isOK_vals
+        if not np.all(isOK_df):
             return ret, None
 
-        return df[list(set(setpoint_pv+readback_pv+extra_monitors))]
+        return ret, df[list(set(setpoint_pv+readback_pv+extra_monitors))]
 
 
 class AbstractMachineIO(ABC):
@@ -282,12 +292,12 @@ class AbstractMachineIO(ABC):
                                      extra_monitors = extra_monitors,
                                      **kws,
                                      )
-        if ret == "Timeout":
-            if self._n_popup_ramping_issue < 2:
-                popup_ramping_issue()
-                self._n_popup_ramping_issue += 1
-            else:
-                logger.warning("'ramping_not_OK' issued 2 times already. Ignoring 'ramping_not_OK' issue from now on...")
+#         if ret == "Timeout":
+#             if self._n_popup_ramping_issue < 2:
+#                 popup_ramping_issue()
+#                 self._n_popup_ramping_issue += 1
+#             else:
+#                 logger.warning("'ramping_not_OK' issued 2 times already. Ignoring 'ramping_not_OK' issue from now on...")
 
         time.sleep(self._ensure_set_timewait_after_ramp)
         self._record_history(caller='ensure_set', setpoint_pv=setpoint_pv, readback_pv=readback_pv, goal=goal, tol=tol, ret=ret, data=data)

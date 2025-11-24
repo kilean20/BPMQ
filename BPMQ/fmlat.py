@@ -175,8 +175,8 @@ def combine_lattice_elements_quads_only(filename, from_element=None, to_element=
 
 
 def update_lattice_file(
-    filename,
-    output_filename=None,
+    read_fname,
+    write_fname,
     IonEk=None,
     IonQ=None,
     IonA=None,
@@ -189,7 +189,7 @@ def update_lattice_file(
     Updates the lattice file with new values for specified parameters.
 
     Parameters:
-        filename (str): The path to the lattice file.
+        read_fname (str): The path to the lattice file.
         IonEk (float, optional): New kinetic energy [eV/u].
         IonQ (float, optional): New charge state.
         IonA (float, optional): New mass number.
@@ -201,10 +201,9 @@ def update_lattice_file(
     Returns:
         None: Modifies the file in place.
     """
-    if output_filename is None:
-        output_filename = filename
+
     # Read the file
-    with open(filename, 'r') as file:
+    with open(read_fname, 'r') as file:
         lines = file.readlines()
 
     updated_lines = []
@@ -275,7 +274,7 @@ def update_lattice_file(
     updated_content = "".join(updated_lines)
 
     # Write back to the file
-    with open(output_filename, 'w') as file:
+    with open(write_fname, 'w') as file:
         file.write(updated_content)
 
 
@@ -319,18 +318,22 @@ def read_matrix_from_lattice_file(filename, matrix_name="S0"):
     return np.array(matrix_values)
 
 
-def update_lattice_file_from_bpmQscan(filename,
+def update_lattice_file_from_bpmQscan(read_fname,
+                                      write_fname,
                                       bpmQscan, 
-                                      from_element=None, 
-                                      to_element="BDS_BTS:QV_D5501"
+                                      zero_couplings=True,
+                                      from_element="LS3_WD06:BPM_D4699",
+                                      to_element="LS3_WD06:BPM_D4699",
+#                                       from_element=None, 
+#                                       to_element="BDS_BTS:QV_D5501"
                                      ):
-        
+    
     if from_element == to_element:
         xcov = bpmQscan.model.xcovs[0].detach().numpy().copy()
         ycov = bpmQscan.model.ycovs[0].detach().numpy().copy()
     else:
         lattice_dicts = combine_lattice_elements_quads_only(
-            filename, 
+            read_fname, 
             from_element = from_element, 
             to_element   = to_element)
         
@@ -354,11 +357,16 @@ def update_lattice_file_from_bpmQscan(filename,
     ycov[0,1]*=1e3
     xcov[1,0]*=1e3
     ycov[1,0]*=1e3
-    S0 = read_matrix_from_lattice_file(filename)
+    S0 = read_matrix_from_lattice_file(read_fname)
     S0[:2,:2] = xcov
     S0[2:4,2:4] = ycov
+    if zero_couplings:
+        S0[:2,2:4] = 0.0
+        S0[2:4,:2] = 0.0
+        
 
-    update_lattice_file(filename=filename, 
+    update_lattice_file(read_fname=read_fname, 
+                        write_fname=write_fname,
                         S0=S0,
                         IonEk=bpmQscan.E_MeV_u*1e6, 
                         IonQ=bpmQscan.charge_number, 
@@ -366,4 +374,4 @@ def update_lattice_file_from_bpmQscan(filename,
                         IonChargeStates=[bpmQscan.charge_number/bpmQscan.mass_number], 
                        )
     
-    return l_xcovs, l_ycovs
+#     return l_xcovs, l_ycovs

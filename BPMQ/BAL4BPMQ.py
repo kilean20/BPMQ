@@ -709,7 +709,7 @@ class EnvelopeEnsembleModel:
                 xnemit_sim_ratio = cs[:,2]/xnemit_target
                 ynemit_sim_ratio = cs[:,5]/ynemit_target
                 regloss_emitprior = (torch.relu(torch.abs(xnemit_sim_ratio - 1) - 0.2)**2 +
-                                     torch.relu(torch.abs(ynemit_sim_ratio - 1) - 0.2)**2)                
+                                     torch.relu(torch.abs(ynemit_sim_ratio - 1) - 0.2)**2)
             
             # make each regloss > 0 and < 1 for tolerable region to work with torch_helper.run_torch_optimizer
             return {'fitloss_bpmQ': fitloss_bpmQ,
@@ -752,12 +752,14 @@ class EnvelopeEnsembleModel:
                        BPMQ_targets   : torch.Tensor, 
                        BPMQ_tolerances: torch.Tensor = None, 
                        BPMQ_model_err : torch.Tensor = None, 
+                       BPMQ_weight    : Optional[float] = None,
                        PM_i_monitors  : Optional[List[int]] = None, 
                        PM_llB2        : torch.Tensor = None, 
                        PM_xrms_targets: Optional[torch.Tensor] = None, 
                        PM_yrms_targets: Optional[torch.Tensor] = None, 
                        PM_xrms_tolerances: Optional[torch.Tensor] = None, 
                        PM_yrms_tolerances: Optional[torch.Tensor] = None, 
+                       PM_weight         : Optional[float] = None,
                        fit_err: Optional[bool] = False,
                        i_extra_aper = None,
                        xnemit_target: Optional[float] = None, 
@@ -830,7 +832,6 @@ class EnvelopeEnsembleModel:
         else:
             args = (batch_size*n_batch_padding_factor, BPMQ_i_monitors, BPMQ_llB2, BPMQ_targets_samples, BPMQ_tolerances)
 
-
         kwargs = {
             'fit_err': fit_err,
             'iPM': PM_i_monitors,
@@ -842,8 +843,10 @@ class EnvelopeEnsembleModel:
             'xnemit_target': xnemit_target,
             'ynemit_target': ynemit_target,
         }
-        loss_weights = {'fitloss_bpmQ':1.0, 
-                        'fitloss_PM':1.0, 
+        BPMQ_weight = BPMQ_weight or 1.0
+        PM_weight = PM_weight or 1.0
+        loss_weights = {'fitloss_bpmQ':BPMQ_weight, 
+                        'fitloss_PM':PM_weight, 
                         'regloss_beamloss':1.0, 
                         'regloss_PM_err':1.0, 
                         'regloss_bpmQ_err':1.0, 
@@ -1397,7 +1400,7 @@ class virtual_Evaluator_wBPMQ:
    
    
    
-def plot_reconstructed_ellipse(model,selected_cov_index=None,cs_ref=None,bg=_bg):
+def plot_reconstructed_ellipse(model,selected_cov_index=None,cs_ref=None,bg=_bg,xlim=None,ylim=None):
     '''
     compare reconstructed ellipses for virtual machinie
     '''
@@ -1424,6 +1427,12 @@ def plot_reconstructed_ellipse(model,selected_cov_index=None,cs_ref=None,bg=_bg)
         plot_beam_ellipse(*model.cs[3:],bg,'y',ls=':',color='k',fig=fig,ax=ax[1],label=f'{mis_y:.2f}')
     ax[0].legend()
     ax[1].legend()
+    if xlim is not None:
+        ax[0].set_xlim(xlim)
+        ax[1].set_xlim(xlim)
+    if ylim is not None:
+        ax[0].set_ylim(ylim)
+        ax[1].set_ylim(ylim)     
     if MMD4:
         fig.text(0.47, 0.95, f'MMD10: {10*MMD4:.2f}', ha='left', va='bottom')
     fig.tight_layout()
@@ -1444,6 +1453,7 @@ class BPMQscan:
     quads_max_curr:  List[int  ] = field(default_factory=lambda: [150, 150, 150, 150])
     quads_min_curr:  List[int  ] = field(default_factory=lambda: [5, 5, 5, 5])
     quads_tol_curr:  List[float] = field(default_factory=lambda: [0.3, 0.3, 0.3, 0.3])
+    quads_init_rel_size: List[float] = field(default_factory=lambda: [0.05, 0.05, 0.05, 0.05])
     corrs_to_scan :  List[str  ] = field(default_factory=lambda: _valid_corrs)
     corrs_max_curr:  List[int  ] = field(default_factory=lambda: [10, 10, 10, 10])
     corrs_min_curr:  List[int  ] = field(default_factory=lambda: [-10, -10, -10, -10])
@@ -1467,6 +1477,8 @@ class BPMQscan:
     bootstrap: bool = False
     plot_history: bool = False
     plot_ellipse: bool = True
+    plot_xlim : bool = None
+    plot_ylim : bool = None
     cs_ref: Optional[List[float]] = None
     dtype: torch.dtype = _dtype
     virtual_beamQerr: float = 0.0
@@ -1741,9 +1753,13 @@ class BPMQscan:
                     lB2 = [mp_quad.convert(curr, from_field='I', to_field='B2') for mp_quad, curr in zip(self.mp_quads_to_scan, quads_curr)]
 
             #bounds = [(b2-0.2*abs(b2),b2+0.2*abs(b2)) for b2 in lB2]
-            bounds = [(self.B2min[i],self.B2max[i]) for i in range(len(self.B2min))]
+            bounds = [(max(lB2[i] - self.quads_init_rel_size[i]*abs(lB2[i]), self.B2min[i]), 
+                       min(lB2[i] + self.quads_init_rel_size[i]*abs(lB2[i]), self.B2max[i]) 
+                      )
+                      for i in range(len(lB2))]
+            #bounds = [(self.B2min[i],self.B2max[i]) for i in range(len(self.B2min))]
             init_llB2_random_samples = proximal_ordered_init_sampler(
-                4*n_init,
+                2*n_init+1,
                 bounds = bounds,
                 x0 = lB2,
                 ramping_rate=1,
@@ -1768,8 +1784,9 @@ class BPMQscan:
 
                         print("ISAAC preset:")
                         display(preset_df)
-
+            print("evaluate_candidate")
             is_not_useful_data = self.evaluate_candidate(torch.tensor([lB2], dtype=self.dtype))
+            print("evaluate_candidate done")
             for lB2 in init_llB2_random_samples:
                 if self.train_llB2 is not None:
                     if len(self.train_llB2) >= n_init-n_preset:
@@ -1786,9 +1803,12 @@ class BPMQscan:
             for lB2 in init_llB2:
                 self.evaluate_candidate(lB2)
 
-        if len(self.train_llB2) < 1:
+           
+        if self.train_llB2 is None:
+            retry = input("choose (y/n): No good data without beam loss found. Shall we try with more random quad settings? If not, program need to abort and user need to find good quad settings w/o beam loss to begin with. Also may good to set ninit=1")
+            if retry:
                 init_llB2_random_samples = proximal_ordered_init_sampler(
-                4*n_init,
+                2*n_init+1,
                 bounds = bounds,
                 x0 = init_llB2[-1],
                 ramping_rate=1,
@@ -1801,8 +1821,9 @@ class BPMQscan:
                         if len(self.train_llB2) >= n_init:
                             break
                     is_not_useful_data = self.evaluate_candidate(torch.tensor([lB2], dtype=self.dtype))
-
-        print(f"after init, number of training data is {len(self.train_llB2)}")
+            else:
+                raise ValueError('No good data without beam loss found')
+                    
         self.train_model()
         
     def lB2_to_lICSETs(self,lB2):
@@ -1971,6 +1992,7 @@ class BPMQscan:
                           train_llxrms=None,train_llyrms=None,
                           train_llxrmstol=None,train_llyrmstol=None,                          
                           fit_err=None,sample_model_err=None, bootstrap=None,
+                          BPMQ_weight=None,PM_weight=None,
                           retrun_loss_ftn_4_debug=False):
         if train_llB2 is None:
             train_llB2 = self.train_llB2
@@ -2022,14 +2044,15 @@ class BPMQscan:
                                   PM_i_monitors=self.i_pms, PM_llB2=train_llB2rms, 
                                   PM_xrms_targets=train_llxrms, PM_yrms_targets=train_llyrms, 
                                   PM_xrms_tolerances=train_llxrmstol, PM_yrms_tolerances=train_llyrmstol,
+                                  BPMQ_weight=BPMQ_weight, PM_weight=PM_weight,
                                   xnemit_target=xnemit_target, ynemit_target=ynemit_target,
                                   batch_size=self.batch_size,
                                   n_batch_padding_factor=self.n_batch_padding_factor,
                                   num_restarts=self.num_restarts,
                                   fit_err=fit_err,
-                                  sample_model_err = sample_model_err,
-                                  bootstrap = bootstrap,
-                                  plot_history = self.plot_history,
+                                  sample_model_err=sample_model_err,
+                                  bootstrap=bootstrap,
+                                  plot_history=self.plot_history,
                                   retrun_loss_ftn_4_debug=retrun_loss_ftn_4_debug)
         if retrun_loss_ftn_4_debug:
             return _ 
@@ -2045,7 +2068,7 @@ class BPMQscan:
             self.mmd4d.append(calculate_MMD4D(self.cs_ref.detach().cpu().numpy(),self.model.cs.detach().cpu().numpy()))
         
         if self.plot_ellipse:
-            self.plot_reconstructed_ellipse(selected_cov_index=None)
+            self.plot_reconstructed_ellipse(selected_cov_index=None,xlim=self.plot_xlim, ylim=self.plot_ylim)
             # self.plot_reconstructed_ellipse(selected_cov_index=self.model.selected_cov_index)
             
     def query_candidate(self):
@@ -2086,7 +2109,7 @@ class BPMQscan:
         is_converged = ensemble_std_of_BPMQ < 0.5
         return is_converged
 
-    def plot_reconstructed_ellipse(self,cs_ref=None,selected_cov_index=None):
+    def plot_reconstructed_ellipse(self,cs_ref=None,selected_cov_index=None,xlim=None,ylim=None):
         if cs_ref is None:
             cs_ref = self.cs_ref
-        plot_reconstructed_ellipse(self.model,cs_ref=cs_ref,bg=self.bg,selected_cov_index=selected_cov_index)
+        plot_reconstructed_ellipse(self.model,cs_ref=cs_ref,bg=self.bg,selected_cov_index=selected_cov_index,xlim=xlim,ylim=ylim)
