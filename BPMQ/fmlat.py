@@ -1,4 +1,5 @@
 import re
+import os
 import numpy as np
 import torch
 from pprint import pprint
@@ -375,3 +376,366 @@ def update_lattice_file_from_bpmQscan(read_fname,
                        )
     
 #     return l_xcovs, l_ycovs
+
+
+
+def update_quad_B2_from_machine(read_fname, write_fname):
+    """
+    Reads all quadrupole currents from the live machine via EPICS (I_RD PVs),
+    converts each current to a B2 field strength using the machine portal's
+    calibration, and writes the updated FLAME lattice file.
+
+    Naming convention
+    -----------------
+    FLAME lattice  : <section>:QV_D#### / :QH_D#### / :Q_D####
+    Machine portal : <section>:PSQ_D####
+    EPICS read PV  : <section>:PSQ_D####:I_RD   (never I_CSET)
+
+    Parameters
+    ----------
+    read_fname  : str  Path to the input FLAME lattice file.
+    write_fname : str  Path for the updated output file (may be the same as
+                       read_fname to update in-place).
+
+    Returns
+    -------
+    dict  {flame_element_name: new_B2_value} for every quadrupole updated.
+    """
+    try:
+        from epics import caget_many as epics_caget_many
+    except ImportError:
+        raise ImportError(
+            "The 'epics' package is required for update_quad_B2_from_machine. "
+            "Install it or make sure it is on sys.path."
+        )
+
+    from .machine_portal_helper import get_MPelem_from_PVnames
+
+    # ------------------------------------------------------------------
+    # 1. Read the lattice file
+    # ------------------------------------------------------------------
+    with open(read_fname, 'r') as fh:
+        lines = fh.readlines()
+
+    # ------------------------------------------------------------------
+    # 2. Identify every quadrupole element line and collect FLAME names
+    #    Pattern:  <elem_name>: quadrupole, B2 = <value>, ...;
+    #    (single-line definitions only, comments already start with '#')
+    # ------------------------------------------------------------------
+    _quad_line_re = re.compile(
+        r'^([a-zA-Z0-9_:]+)\s*:\s*quadrupole\b'
+    )
+    _b2_field_re = re.compile(
+        r'(B2\s*=\s*)([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)'
+    )
+
+    quad_fm_names  = []   # FLAME element names, in file order
+    quad_line_idxs = []   # corresponding line indices in `lines`
+
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        m = _quad_line_re.match(stripped)
+        if m:
+            quad_fm_names.append(m.group(1))
+            quad_line_idxs.append(idx)
+
+    if not quad_fm_names:
+        raise ValueError(
+            f"No quadrupole elements found in '{read_fname}'."
+        )
+
+    # ------------------------------------------------------------------
+    # 3. Convert FLAME element names → machine portal PV base names
+    #    e.g. LS3_BTS:QV_D4713  →  LS3_BTS:PSQ_D4713
+    # ------------------------------------------------------------------
+    quad_mp_names = [fmname2mpname(name) for name in quad_fm_names]
+
+    # ------------------------------------------------------------------
+    # 4. Build I_RD PV list and fetch all currents in a single caget_many
+    # ------------------------------------------------------------------
+    i_rd_pvs = [mp_name + ':I_RD' for mp_name in quad_mp_names]
+
+    currents = epics_caget_many(i_rd_pvs)
+
+    # Validate – caget_many returns None for unreachable PVs
+    failed = [pv for pv, val in zip(i_rd_pvs, currents) if val is None]
+    if failed:
+        raise RuntimeError(
+            f"EPICS caget_many failed (returned None) for {len(failed)} PV(s):\n"
+            + "\n".join(f"  {pv}" for pv in failed)
+        )
+
+    # ------------------------------------------------------------------
+    # 5. Get machine-portal element objects and convert I → B2
+    # ------------------------------------------------------------------
+    mp_elems = get_MPelem_from_PVnames(quad_mp_names)
+
+    b2_values = [
+        mp_elem.convert(curr, from_field='I', to_field='B2')
+        for mp_elem, curr in zip(mp_elems, currents)
+    ]
+
+    # ------------------------------------------------------------------
+    # 6. Patch B2 values in the lines list (in-place string substitution)
+    # ------------------------------------------------------------------
+    for line_idx, b2 in zip(quad_line_idxs, b2_values):
+        lines[line_idx] = _b2_field_re.sub(
+            lambda m, b2=b2: m.group(1) + repr(float(b2)),
+            lines[line_idx],
+            count=1,          # only the first B2 = ... on that line
+        )
+
+    # ------------------------------------------------------------------
+    # 7. Write the updated lattice file
+    # ------------------------------------------------------------------
+    with open(write_fname, 'w') as fh:
+        fh.writelines(lines)
+
+    return dict(zip(quad_fm_names, b2_values))
+
+
+
+import os   # add to existing imports at the top of fmlat.py
+
+# ---------------------------------------------------------------------------
+# Private helper
+# ---------------------------------------------------------------------------
+
+def _fetch_quad_B2_from_machine(file_lines):
+    """
+    Reads all quadrupole currents from the live machine via EPICS (I_RD PVs),
+    converts each to a B2 value using the machine-portal calibration, and
+    returns both a name→B2 mapping and the file lines patched with new B2s.
+
+    Operates on ALL quadrupole elements found in `file_lines` so that an
+    optional file-write covers the entire lattice, not just a sub-range.
+
+    Parameters
+    ----------
+    file_lines : list[str]
+        Raw lines of a FLAME lattice file (as returned by file.readlines()).
+
+    Returns
+    -------
+    fm_name_to_b2 : dict  {flame_element_name: new_B2_float}
+    patched_lines : list[str]
+        Copy of `file_lines` with every quadrupole's B2 value replaced.
+
+    Raises
+    ------
+    ImportError  if the 'epics' package is not available.
+    RuntimeError if any I_RD PV returns None (unreachable channel).
+    """
+    try:
+        from epics import caget_many as epics_caget_many
+    except ImportError:
+        raise ImportError(
+            "'epics' is required for update_B2_from_machine. "
+            "Install it or ensure it is on sys.path."
+        )
+
+    from .machine_portal_helper import get_MPelem_from_PVnames
+
+    _quad_line_re = re.compile(r'^([a-zA-Z0-9_:]+)\s*:\s*quadrupole\b')
+    _b2_token_re  = re.compile(r'(B2\s*=\s*)([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)')
+
+    # --- 1. Identify every quadrupole line in the file --------------------
+    quad_fm_names  = []   # FLAME element names, in file order
+    quad_line_idxs = []   # matching index into file_lines
+
+    for idx, line in enumerate(file_lines):
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+        m = _quad_line_re.match(stripped)
+        if m:
+            quad_fm_names.append(m.group(1))
+            quad_line_idxs.append(idx)
+
+    if not quad_fm_names:
+        raise ValueError("No quadrupole elements found in the supplied file lines.")
+
+    # --- 2. FLAME names → machine portal PV base names -------------------
+    #    e.g.  LS3_BTS:QV_D4713  →  LS3_BTS:PSQ_D4713
+    quad_mp_names = [fmname2mpname(name) for name in quad_fm_names]
+
+    # --- 3. Fetch all I_RD values in a single caget_many -----------------
+    i_rd_pvs = [mp + ':I_RD' for mp in quad_mp_names]
+    currents  = epics_caget_many(i_rd_pvs)
+
+    failed = [pv for pv, val in zip(i_rd_pvs, currents) if val is None]
+    if failed:
+        raise RuntimeError(
+            f"epics.caget_many returned None for {len(failed)} PV(s):\n"
+            + "\n".join(f"  {pv}" for pv in failed)
+        )
+
+    # --- 4. Convert I → B2 via machine-portal calibration ----------------
+    mp_elems = get_MPelem_from_PVnames(quad_mp_names)
+    b2_values = [
+        mp_elem.convert(curr, from_field='I', to_field='B2')
+        for mp_elem, curr in zip(mp_elems, currents)
+    ]
+
+    # --- 5. Patch file lines (substitute B2 token, leave everything else) -
+    patched_lines = list(file_lines)   # shallow copy — strings are immutable
+    for line_idx, b2 in zip(quad_line_idxs, b2_values):
+        patched_lines[line_idx] = _b2_token_re.sub(
+            lambda m, _b2=b2: m.group(1) + repr(float(_b2)),
+            patched_lines[line_idx],
+            count=1,
+        )
+
+    fm_name_to_b2 = dict(zip(quad_fm_names, b2_values))
+    return fm_name_to_b2, patched_lines
+
+
+# ---------------------------------------------------------------------------
+# Public function  (replaces the original combine_lattice_elements_quads_only)
+# ---------------------------------------------------------------------------
+
+def combine_lattice_elements_quads_only_w_live_update(
+        filename,
+        from_element=None,
+        to_element=None,
+        marker_types=['bpm'],
+        Brho=None,
+        line_name=None,
+        update_B2_from_machine=False,
+        update_file=False,
+):
+    """
+    Parse a FLAME lattice file and return a list of element dicts in which
+    everything that is not a quadrupole (or a selected marker type) is merged
+    into a single drift element.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the FLAME .lat file.
+    from_element : str, optional
+        Name of the first element to include (default: second element in LINE).
+    to_element : str, optional
+        Name of the last element to include (default: last element in LINE).
+    marker_types : list[str]
+        Element types to keep as individual drift-like entries (default: ['bpm']).
+    Brho : float, optional
+        Magnetic rigidity [T·m] injected into every quadrupole dict.
+    line_name : str, optional
+        Name of the LINE to use; auto-detected from 'USE:' if omitted.
+    update_B2_from_machine : bool
+        If True, fetch live I_RD values from EPICS and replace B2 in every
+        quadrupole dict before returning.  Requires the 'epics' package and
+        a live machine connection.
+    update_file : bool
+        If True (and update_B2_from_machine is True), write the updated lattice
+        to  <filename_without_extension>_updatedB2.lat  with all 
+        quadrupole B2 values replaced throughout the whole file.
+
+    Returns
+    -------
+    combined_elements : list[dict]
+        Ordered list of element dicts (quadrupoles and merged drifts/markers).
+    """
+    with open(filename, 'r') as fh:
+        file_lines = fh.readlines()
+    lattice_text = "".join(file_lines)
+
+    # ------------------------------------------------------------------
+    # Optionally fetch live B2 values from the machine
+    # ------------------------------------------------------------------
+    fm_name_to_b2 = {}
+    if update_B2_from_machine:
+        fm_name_to_b2, patched_lines = _fetch_quad_B2_from_machine(file_lines)
+
+        if update_file:
+            base, _ = os.path.splitext(filename)
+            out_fname = base + '_updatedB2.lat'
+            with open(out_fname, 'w') as fh:
+                fh.writelines(patched_lines)
+
+        # Rebuild lattice_text from the patched lines so that parse_lattice
+        # also sees the updated B2 values (keeps internal state consistent).
+        lattice_text = "".join(patched_lines)
+
+    # ------------------------------------------------------------------
+    # Parse lattice and resolve LINE hierarchy  (unchanged logic)
+    # ------------------------------------------------------------------
+    if line_name is None:
+        use_match = re.search(r'USE:\s*([a-zA-Z0-9_]+);', lattice_text)
+        if use_match:
+            line_name = use_match.group(1)
+        else:
+            raise ValueError(
+                "No default LINE name found in the lattice file, "
+                "and no line_name was provided."
+            )
+
+    elements, lines = parse_lattice(lattice_text)
+    all_line_elements = get_all_line_elements(line_name, lines, elements)
+
+    name_to_data = {elem["name"]: elem for elem in all_line_elements}
+
+    if from_element is not None and from_element not in name_to_data:
+        raise ValueError(f"Starting element '{from_element}' not found in the LINE.")
+    if to_element is not None and to_element not in name_to_data:
+        raise ValueError(f"Ending element '{to_element}' not found in the LINE.")
+
+    start_index = (name_to_data[from_element]["index"] if from_element is not None
+                   else all_line_elements[1]["index"])
+    end_index   = (name_to_data[to_element]["index"]   if to_element   is not None
+                   else all_line_elements[-1]["index"])
+
+    if start_index > end_index:
+        raise ValueError("Starting element must come before ending element in the LINE.")
+
+    sub_elements = [e for e in all_line_elements if start_index <= e["index"] <= end_index]
+
+    # ------------------------------------------------------------------
+    # Merge non-quad, non-marker elements into drifts  (unchanged logic)
+    # ------------------------------------------------------------------
+    combined_elements = []
+    current_drift = None
+
+    for elem in sub_elements:
+        elem_type = elem.get("type", "").lower()
+
+        if elem_type == "quadrupole":
+            if current_drift:
+                combined_elements.append(current_drift)
+                current_drift = None
+            elem['Brho'] = Brho
+            elem["aper"] = elem.get("aper", 0.1)
+            # Apply live B2 if available (fm_name_to_b2 is empty when
+            # update_B2_from_machine=False, so the lookup is a no-op).
+            if elem["name"] in fm_name_to_b2:
+                elem["B2"] = fm_name_to_b2[elem["name"]]
+            combined_elements.append(elem)
+
+        elif elem_type in marker_types or elem['name'] == to_element:
+            if current_drift:
+                combined_elements.append(current_drift)
+            elem["type"] = "drift"
+            elem["aper"] = elem.get("aper", 0.1)
+            elem["L"]    = elem.get("L", 0)
+            current_drift = elem
+
+        else:
+            if current_drift:
+                current_drift["L"] += elem.get("L", 0)
+            else:
+                current_drift = {
+                    "name":  elem["name"],
+                    "type":  "drift",
+                    "index": elem["index"],
+                    "pos":   elem["pos"],
+                    "L":     elem.get("L", 0),
+                    "aper":  elem.get("aper", 0.1),
+                }
+
+    if current_drift:
+        combined_elements.append(current_drift)
+
+    return combined_elements

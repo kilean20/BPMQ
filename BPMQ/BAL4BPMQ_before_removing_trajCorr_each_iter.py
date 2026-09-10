@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 # Local Libraries
 from .torch_helper import run_torch_optimizer
 from .construct_machineIO import Evaluator_wBPMQ
+from .construct_machineIO import phantasy_fetch_data_orig as fetch_data
+from .LinearControl import LinearControl
 from .machine_portal_helper import get_MPelem_from_PVnames
 from .utils import calculate_Brho, calculate_betagamma, sort_by_Dnum, calculate_mismatch_factor, calculate_MMD4D, \
                    plot_beam_ellipse_from_cov, plot_beam_ellipse, get_ISAAC_preset, proximal_ordered_init_sampler, select_n_most_distant_mmd4d_covs
@@ -816,9 +818,9 @@ class EnvelopeEnsembleModel:
                 _mmd2_cal = _mmd4d_sq_batch_torch(
                     _xc_cal, _yc_cal, _xcov_prior_t, _ycov_prior_t
                 )
-                _mmd4d_norm = _mmd2_cal.mean().clamp(min=1e-10)
+                # _mmd4d_norm = _mmd2_cal.mean().clamp(min=1e-10)
                 # Scale by the variance of the initial distribution instead
-                # _mmd4d_norm = _mmd2_cal.var().clamp(min=1e-10)
+                _mmd4d_norm = _mmd2_cal.var().clamp(min=1e-10)
         # ─────────────────────────────────────────────────────────────────────
 
         def loss_fun(x):
@@ -1117,7 +1119,7 @@ class EnvelopeEnsembleModel:
         for i in range(num_restarts-1):
             print("irestart",irestart)
             mask = combined_losses < 0.05*(1+np.log(irestart+1))
-            if torch.sum(mask) >= batch_size:
+            if torch.sum(mask) > batch_size:
                 break
             irestart += 1
 
@@ -1696,6 +1698,7 @@ class BPMQscan:
     ynemit_target: Optional[float] = None
     machineIO: Optional[Any] = None
     set_manually: bool = True
+    correct_traj_each_iter: bool = False
     wait_before_measure: bool = False
     train_BPMQtol: Optional[List[float]] = None
     batch_size: int = 8
@@ -1726,7 +1729,9 @@ class BPMQscan:
         self._validate_PVs()
         self._initialize_attributes()
         self._setup_quads_evaluator()
-        
+        if self.machineIO and self.correct_traj_each_iter:
+            self._setup_corrs_evaluator()
+            
         self.llB2_penal = None
 
         # Structured rejection log — one entry per rejected candidate.
@@ -1881,6 +1886,38 @@ class BPMQscan:
                 set_manually = self.set_manually
             )
 
+            if self.correct_traj_each_iter:
+                self._setup_corrs_evaluator()
+
+    def _setup_corrs_evaluator(self):
+        """Sets up the trajectory machine evaluator if applicable."""
+        self.corrs_evaluator = Evaluator_wBPMQ(
+            self.machineIO,
+            input_CSETs = self.corrs_input_CSETs,
+            input_RDs   = self.corrs_input_RDs,
+            input_tols  = self.corrs_tol_curr,
+            output_RDs  = self.quads_input_CSETs + self.quads_input_RDs,
+            BPM_names   = self.BPM_names,
+            model_type = self.BPMQ_model_type,
+            ensure_set_kwargs = None,
+            fetch_data_kwargs = None,
+            set_manually=self.set_manually
+        )            
+
+    def _setup_traj_controller(self):
+        x0, _ = fetch_data(self.corrs_evaluator.input_CSETs,0.1)
+        self.traj_controller = LinearControl(
+                                x0  = x0,
+                                dx  = self.corrs_step_curr,
+                                xmin= self.corrs_min_curr,
+                                xmax= self.corrs_max_curr,
+                                goal= np.zeros(len(self.BPM_names)),
+                                goal_tol=np.ones(len(self.BPM_names)),
+                                evaluator = self.corrs_evaluator,
+                                input_RDs = self.corrs_input_RDs,
+                                output_RDs = self.corrs_output_RDs)
+                                
+                                
     def get_data(self):
         data = {
             "E_MeV_u": self.E_MeV_u,  # Use 'self' to reference instance attributes
@@ -1891,6 +1928,7 @@ class BPMQscan:
             "BPM_names": self.BPM_names,
             "lattice_dicts": self.lattice_dicts,
             "bootstrap": self.bootstrap,
+            "correct_traj_each_iter": self.correct_traj_each_iter,
             "xnemit_target": self.xnemit_target,
             "ynemit_target": self.ynemit_target,
             "reconstructed_cs_loc":self.lattice_dicts[0]["name"],
@@ -2176,6 +2214,13 @@ class BPMQscan:
                 self.evaluated_dfs.append(df)
                 if self.machineIO is not None:
                     self.init_BPM_MAGs = 0.3*self.init_BPM_MAGs + 0.7*BPM_MAGs
+#             if self.correct_traj_each_iter and self.machineIO is not None:
+#                 self._setup_traj_controller()
+#                 self.traj_controller.run()
+#                 self.evaluated_dfs[-1]=ctr.eval_df
+#                 df = ctr.eval_df[-1]
+#                 BPM_MAGs = df[self.BPM_MAG_PVs]
+#                 is_beamloss = np.any(BPM_MAGs < 0.95*self.init_BPM_MAGs)
             # use readback instead of set
             if self.machineIO is not None:
                 lB2 = [self.mp_quads_to_scan[i].convert(df[qname+':I_RD'].mean(),from_field='I',to_field='B2') 

@@ -1,0 +1,437 @@
+# Beam envelope simulation.
+
+sim_type = "MomentMatrix"; 
+
+# Global parameters.
+
+# Mpultipole level: 0 only include focusing and defocusing effects,
+#                   1 include dipole terms,
+#                   2 include quadrupole terms.
+MpoleLevel = "2"; 
+Soffset = 469.868009; 
+
+# Dipole strength adjusted to beam energy.
+HdipoleFitMode = "1"; 
+
+AMU = 931494320.0; # Atomic mass unit [eV/c^2].
+
+#IonZ = 0.3958090803259604; # Charge state for U_238.
+IonEs = 931494320.0; # Nucleon mass [eV/u].
+#IonEk = 16465300.0; # Kinetic energy at LS1 entrance [eV/u].
+IonEk = 240010000.0; # Kinetic energy at LS1 entrance [eV/u].
+#IonW = 947904320.0; # Total energy [eV/u].
+IonQ = 49.0; 
+IonA = 124.0; 
+
+
+# Define Initial Conditions for the Charge States.
+# Units are: [mm, rad, mm, rad, rad, MeV/u]. Note, units for mis-alignments are: [m] and [rad].
+
+IonChargeStates = [0.3951612903225806]; 
+NCharge = [10111.0]; 
+
+#cstate = 0;
+BaryCenter0 = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]; 
+
+# Define beam envelope parameters.
+
+#S0 = [
+#    2.025418817870401, -4.466681644087306e-06, -0.06728774464147903, 1.8077067062711815e-05, 0.0, 0.0, 0.0,
+#    -4.466681644087306e-06, 3.952970804670027e-07, 2.1783597786394442e-05, 7.2666800821072665e-09, 0.0, 0.0, 0.0,
+#    -0.06728774464147903, 2.1783597786394442e-05, 1.9841967033383086, 9.251785863052516e-07, 0.0, 0.0, 0.0,
+#    1.8077067062711815e-05, 7.2666800821072665e-09, 9.251785863052516e-07, 3.983792688522394e-07, 0.0, 0.0, 0.0,
+#    0.0, 0.0, 0.0, 0.0, 4.170221201722336e-05, 3.2490004636019384e-07, 0.0,
+#    0.0, 0.0, 0.0, 0.0, 3.2490004636019384e-07, 0.00038836452307313557, 0.0,
+#    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+S0 = [
+    2.0574859814183593, -1.8453400063911924e-05, -0.13523033418802927, 1.4336085988834205e-05, 2.5016619575190446e-07, -7.222896297673206e-07, 0.0, 
+    -1.845340006391147e-05, 5.382839449657468e-08, 1.5681410045792433e-05, 3.887281699441664e-09, 1.9374466778366096e-11, 1.4392049726901385e-10, 0.0, 
+    -0.13523033418802674, 1.5681410045792115e-05, 1.9857938522235083, -2.124321183689995e-05, -9.291570665087596e-07, -2.3714729116731817e-06, 0.0, 
+    1.4336085988834818e-05, 3.887281699441787e-09, -2.124321183690136e-05, 5.7299560857532466e-08, 8.669554527079607e-11, -7.809804442718881e-10, 0.0, 
+    2.5016619574839774e-07, 1.9374466777649273e-11, -9.291570665010167e-07, 8.669554527099307e-11, 5.397896688007717e-05, 4.279198751305295e-05, 0.0, 
+    -7.222896297913815e-07, 1.4392049726288899e-10, -2.3714729116087157e-06, -7.809804442646339e-10, 4.279198751305286e-05, 0.0003339580248268087, 0.0, 
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; 
+
+
+S: source, matrix_variable = "S", vector_variable = "BaryCenter"; 
+
+LS3_WD06:BPM_D4699: bpm; 
+drift_499: drift, L = 0.999498; 
+LS3_BTS:DCH_D4709: orbtrim, I = 0.83999, realpara = 1.0, tm_xkick = -0.00016547803; 
+LS3_BTS:DCV_D4709: orbtrim, I = 0.71471, realpara = 1.0, tm_ykick = 0.00030246527199999997; 
+drift_500: drift, L = 0.2945; 
+LS3_BTS:QV_D4713: quadrupole, B2 = -8.52519792, I = 71.888, L = 0.261, aper = 0.025; 
+drift_501: drift, L = 0.239; 
+LS3_BTS:QH_D4718: quadrupole, B2 = 11.08674192, I = 93.488, L = 0.261, aper = 0.025; 
+drift_502: drift, L = 0.7016340000000001; 
+LS3_BTS:GV_D4726: marker; 
+drift_503: drift, L = 2.421837; 
+LS3_BTS:DCH_D4750: orbtrim, I = 3.93716, realpara = 1.0, tm_xkick = -0.00077562052; 
+LS3_BTS:DCV_D4750: orbtrim, I = 0.70742, realpara = 1.0, tm_ykick = 0.000299380144; 
+drift_504: drift, L = 0.243209; 
+LS3_BTS:BPM_D4753: bpm; 
+drift_505: drift, L = 0.05232; 
+LS3_BTS:QV_D4755: quadrupole, B2 = -8.63501226, I = 72.814, L = 0.261, aper = 0.025; 
+drift_506: drift, L = 0.239; 
+LS3_BTS:QH_D4760: quadrupole, B2 = 3.46567416, I = 29.224, L = 0.261, aper = 0.025; 
+drift_507: drift, L = 0.826117; 
+LS3_BTS:BPM_D4769: bpm; 
+drift_508: drift, L = 0.145282; 
+LS3_BTS:PM_D4771: marker; 
+drift_509: drift, L = 0.825101; 
+LS3_BTS:DCH_D4779: orbtrim, I = -0.16947, realpara = 1.0, tm_xkick = 3.338559e-05; 
+LS3_BTS:DCV_D4779: orbtrim, I = -1.23278, realpara = 1.0, tm_ykick = -0.000521712496; 
+drift_510: drift, L = 0.2945; 
+LS3_BTS:QH_D4783: quadrupole, B2 = 6.45580242, I = 54.438, L = 0.261, aper = 0.025; 
+drift_511: drift, L = 1.199075; 
+LS3_BTS:PM_D4797: marker; 
+drift_512: drift, L = 0.789925; 
+LS3_BTS:QV_D4806: quadrupole, B2 = -6.99503115, I = 58.985, L = 0.261, aper = 0.025; 
+drift_513: drift, L = 2.006084; 
+LS3_BTS:PM_D4827: marker; 
+drift_514: drift, L = 1.391397; 
+LS3_BTS:DCH_D4841: orbtrim, I = -3.0432, realpara = 1.0, tm_xkick = 0.0005995104; 
+LS3_BTS:DCV_D4841: orbtrim, I = 2.17199, realpara = 1.0, tm_ykick = 0.000919186168; 
+drift_515: drift, L = 0.243199; 
+LS3_BTS:BPM_D4843: bpm; 
+drift_516: drift, L = 0.05232; 
+LS3_BTS:QH_D4845: quadrupole, B2 = 7.41163782, I = 62.498, L = 0.261, aper = 0.025; 
+drift_517: drift, L = 1.4945; 
+LS3_BTS:PM_D4862: marker; 
+drift_518: drift, L = 0.4945; 
+LS3_BTS:QV_D4868: quadrupole, B2 = -7.4128237200000004, I = 62.508, L = 0.261, aper = 0.025; 
+drift_519: drift, L = 0.158432; 
+LS3_BTS:GV_D4871: marker; 
+drift_520: drift, L = 1.564721; 
+LS3_BTS:BPM_D4886: bpm; 
+drift_521: drift, L = 1.675347; 
+LS3_BTS:DCH_D4903: orbtrim, I = 3.63217, realpara = 1.0, tm_xkick = -0.0007155374899999999; 
+LS3_BTS:DCV_D4903: orbtrim, I = -3.20269, realpara = 1.0, tm_ykick = -0.001355378408; 
+drift_522: drift, L = 0.2945; 
+LS3_BTS:QH_D4907: quadrupole, B2 = 7.41436539, I = 62.521, L = 0.261, aper = 0.025; 
+drift_523: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D4930: quadrupole, B2 = -7.416855780000001, I = 62.542, L = 0.261, aper = 0.025; 
+drift_524: drift, L = 3.397481; 
+LS3_BTS:DCH_D4965: orbtrim, I = -0.50223, realpara = 1.0, tm_xkick = 9.893930999999999e-05; 
+LS3_BTS:DCV_D4965: orbtrim, I = 0.18301, realpara = 1.0, tm_ykick = 7.7449832e-05; 
+drift_525: drift, L = 0.243199; 
+LS3_BTS:BPM_D4968: bpm; 
+drift_526: drift, L = 0.05232; 
+LS3_BTS:QH_D4969: quadrupole, B2 = 7.45278855, I = 62.845, L = 0.261, aper = 0.025; 
+drift_527: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D4992: quadrupole, B2 = -7.47105141, I = 62.999, L = 0.261, aper = 0.025; 
+drift_528: drift, L = 1.7231509999999999; 
+LS3_BTS:BPM_D5010: bpm; 
+drift_529: drift, L = 1.675349; 
+LS3_BTS:DCH_D5027: orbtrim, I = -1.05144, realpara = 1.0, tm_xkick = 0.00020713367999999996; 
+LS3_BTS:DCV_D5027: orbtrim, I = -1.47857, realpara = 1.0, tm_ykick = -0.000625730824; 
+drift_530: drift, L = 0.2945; 
+LS3_BTS:QH_D5031: quadrupole, B2 = 7.45207701, I = 62.839, L = 0.261, aper = 0.025; 
+drift_531: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5054: quadrupole, B2 = -7.456820609999999, I = 62.879, L = 0.261, aper = 0.025; 
+drift_532: drift, L = 3.397481; 
+LS3_BTS:DCH_D5089: orbtrim, I = 1.77653, realpara = 1.0, tm_xkick = -0.00034997641; 
+LS3_BTS:DCV_D5089: orbtrim, I = 0.0, realpara = 1.0, tm_ykick = 0.0; 
+drift_533: drift, L = 0.243199; 
+LS3_BTS:BPM_D5092: bpm; 
+drift_534: drift, L = 0.05232; 
+LS3_BTS:QH_D5093: quadrupole, B2 = 7.45634625, I = 62.875, L = 0.261, aper = 0.025; 
+drift_535: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5116: quadrupole, B2 = -7.454448810000001, I = 62.859, L = 0.261, aper = 0.025; 
+drift_536: drift, L = 1.723146854; 
+LS3_BTS:BPM_D5134: bpm; 
+drift_537: drift, L = 1.675353146; 
+LS3_BTS:DCH_D5151: orbtrim, I = 3.6913, realpara = 1.0, tm_xkick = -0.0007271860999999999; 
+LS3_BTS:DCV_D5151: orbtrim, I = -0.47636, realpara = 1.0, tm_ykick = -0.000201595552; 
+drift_538: drift, L = 0.2945; 
+LS3_BTS:QH_D5155: quadrupole, B2 = 7.45302573, I = 62.847, L = 0.261, aper = 0.025; 
+drift_539: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5178: quadrupole, B2 = -7.45658343, I = 62.877, L = 0.261, aper = 0.025; 
+drift_540a: drift, L = 1.734; 
+LS3_BTS:PM_D5197: marker; 
+#drift_540: drift, L = 3.3985;
+drift_540b: drift, L = 1.6645; 
+LS3_BTS:DCH_D5213: orbtrim, I = 0.72069, realpara = 1.0, tm_xkick = -0.00014197593; 
+LS3_BTS:DCV_D5213: orbtrim, I = 0.93811, realpara = 1.0, tm_ykick = 0.000397008152; 
+drift_541: drift, L = 0.242179; 
+LS3_BTS:BPM_D5216: bpm; 
+drift_542: drift, L = 0.05232099999999999; 
+LS3_BTS:QH_D5218: quadrupole, B2 = 7.45029816, I = 62.824, L = 0.261, aper = 0.025; 
+drift_543: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5240: quadrupole, B2 = -7.45397445, I = 62.855, L = 0.261, aper = 0.025; 
+drift_544: drift, L = 1.723164854; 
+LS3_BTS:BPM_D5259: bpm; 
+drift_545a: drift, L = 0.145282; 
+LS3_BTS:PM_D5260: marker; 
+drift_545b: drift, L = 1.530053146; 
+#drift_545: drift, L = 1.675335146;
+LS3_BTS:DCH_D5275: orbtrim, I = 0.0, realpara = 1.0, tm_xkick = 0.0; 
+LS3_BTS:DCV_D5275: orbtrim, I = 0.86027, realpara = 1.0, tm_ykick = 0.000364066264; 
+drift_546: drift, L = 0.2945; 
+LS3_BTS:QH_D5280: quadrupole, B2 = 7.4631058800000005, I = 62.932, L = 0.261, aper = 0.025; 
+drift_547: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5302: quadrupole, B2 = -7.4481635399999995, I = 62.806, L = 0.261, aper = 0.025; 
+#drift_548: drift, L = 3.3985;
+drift_548a: drift, L = 1.734; 
+LS3_BTS:PM_D5321: marker; 
+drift_548b: drift, L = 1.6645; 
+
+LS3_BTS:DCH_D5337: orbtrim, I = 4.80282, realpara = 1.0, tm_xkick = -0.0009461555399999999; 
+LS3_BTS:DCV_D5337: orbtrim, I = -1.66853, realpara = 1.0, tm_ykick = -0.000706121896; 
+drift_549: drift, L = 0.242191; 
+LS3_BTS:BPM_D5340: bpm; 
+drift_550: drift, L = 0.052308999999999994; 
+LS3_BTS:QH_D5342: quadrupole, B2 = 7.46002254, I = 62.906, L = 0.261, aper = 0.025; 
+drift_551: drift, L = 1.9889999999999999; 
+LS3_BTS:QV_D5364: quadrupole, B2 = -7.45717638, I = 62.882, L = 0.261, aper = 0.025; 
+drift_552: drift, L = 1.583223; 
+LS3_BTS:BPM_D5381: bpm; 
+drift_553: drift, L = 0.736277; 
+LS3_BTS:DCH_D5389: orbtrim, I = -2.07839, realpara = 1.0, tm_xkick = 0.00040944283000000003; 
+LS3_BTS:DCV_D5389: orbtrim, I = -0.97263, realpara = 1.0, tm_ykick = -0.00041161701599999996; 
+drift_554: drift, L = 0.2945; 
+LS3_BTS:QH_D5393: quadrupole, B2 = 7.42207374, I = 62.586, L = 0.261, aper = 0.025; 
+drift_555: drift, L = 1.2389999999999999; 
+LS3_BTS:QV_D5408: quadrupole, B2 = -7.43594877, I = 62.703, L = 0.261, aper = 0.025; 
+drift_556: drift, L = 1.873481; 
+LS3_BTS:DCH_D5428: orbtrim, I = 2.9802, realpara = 1.0, tm_xkick = -0.0005870993999999999; 
+LS3_BTS:DCV_D5428: orbtrim, I = 0.82128, realpara = 1.0, tm_ykick = 0.00034756569599999997; 
+drift_557: drift, L = 0.243199; 
+LS3_BTS:BPM_D5430: bpm; 
+drift_558: drift, L = 0.05232; 
+LS3_BTS:QH_D5432: quadrupole, B2 = 18.54569715, I = 156.385, L = 0.261, aper = 0.025; 
+drift_559: drift, L = 0.489; 
+LS3_BTS:QV_D5440: quadrupole, B2 = -15.46911678, I = 130.442, L = 0.261, aper = 0.025; 
+drift_560: drift, L = 0.371224814; 
+LS3_BTS:BPM_D5445: bpm; 
+drift_561: drift, L = 2.223275186; 
+BDS_BTS:DCH_D5467: orbtrim, I = -1.79836, realpara = 1.0, tm_xkick = 0.000157536336; 
+BDS_BTS:DCV_D5467: orbtrim, I = 0.0, realpara = 1.0, tm_ykick = 0.0; 
+drift_562: drift, L = 0.2945; 
+BDS_BTS:QH_D5471: quadrupole, B2 = 3.88951482, I = 32.798, L = 0.261, aper = 0.025; 
+drift_563: drift, L = 0.489; 
+BDS_BTS:QV_D5479: quadrupole, B2 = -0.01375644, I = 0.116, L = 0.261, aper = 0.025; 
+drift_564: drift, L = 0.32889999999999997; 
+BDS_BTS:DCH_D5496: orbtrim, I = 2.99089, realpara = 1.0, tm_xkick = -0.000262001964; 
+BDS_BTS:DCV_D5496: orbtrim, I = 1.01432, realpara = 1.0, tm_ykick = 8.885443200000001e-05; 
+drift_565: drift, L = 0.2921758; 
+BDS_BTS:BPM_D5499: bpm; 
+drift_566: drift, L = 0.052324199999999994; 
+BDS_BTS:QV_D5501: quadrupole, B2 = -10.49865411, I = 88.529, L = 0.261, aper = 0.025; 
+drift_567: drift, L = 0.489; 
+BDS_BTS:QH_D5509: quadrupole, B2 = 11.20402743, I = 94.477, L = 0.261, aper = 0.025; 
+drift_568: drift, L = 0.268080814; 
+BDS_BTS:BPM_D5513: bpm; 
+drift_569: drift, L = 0.145282; 
+BDS_BTS:PM_D5514: marker; 
+drift_570: drift, L = 0.705851186; 
+BDS_BTS:BCM_D5521: marker; 
+drift_571: drift, L = 0.25710829999999996; 
+BDS_BTS:GV_D5547: marker; 
+drift_572: drift, L = 0.356979; 
+BDS_BTS:QV_D5552: quadrupole, B2 = -16.067877690000003, I = 135.491, L = 0.261, aper = 0.025; 
+drift_573: drift, L = 0.489; 
+BDS_BTS:QH_D5559: quadrupole, B2 = 18.302113289999998, I = 154.331, L = 0.261, aper = 0.025; 
+drift_574: drift, L = 0.2195; 
+BDS_BTS:DCH_D5563: orbtrim, I = 1.61973, realpara = 1.0, tm_xkick = -0.00031908680999999996; 
+BDS_BTS:DCV_D5563: orbtrim, I = -0.82335, realpara = 1.0, tm_ykick = -0.00034844172; 
+drift_575: drift, L = 0.234072; 
+BDS_BTS:BPM_D5565: bpm; 
+drift_576: drift, L = 0.145282; 
+BDS_BTS:PM_D5567: marker; 
+drift_577: drift, L = 0.295646; 
+##### To Fragment target #####
+BDS_BBS:DH_D5578_0: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5578_1: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5578_2: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5578_3: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5578_4: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+drift_578: drift, L = 0.37951480000000004; 
+#BDS_BBS:S_D5606: sextupole, B3 = 27.52490128228354, L = 0.2, aper = 0.07, dstkick = 1.0, step = 10.0;
+BDS_BBS:S_D5606: drift, B3 = 36.50087, I = 2.14711, L = 0.2, aper = 0.07, dstkick = 1.0, step = 10.0; 
+drift_579: drift, L = 0.1747; 
+BDS_BBS:QH_D5611: quadrupole, B2 = 12.35768289, I = 147.054, L = 0.4506, aper = 0.07; 
+drift_580: drift, L = 0.2747; 
+BDS_BBS:DCH_D5616: orbtrim, I = 0.044, realpara = 1.0, tm_xkick = -3.8544e-06; 
+BDS_BBS:DCV_D5616: orbtrim, I = 1.195, realpara = 1.0, tm_ykick = 0.00010468200000000001; 
+drift_581: drift, L = 0.2747; 
+BDS_BBS:QV_D5621: quadrupole, B2 = -7.34482707, I = 87.402, L = 0.4506, aper = 0.07; 
+drift_582: drift, L = 0.204848; 
+BDS_BBS:BPM_D5625: bpm; 
+drift_583: drift, L = 0.270036; 
+BDS_BBS:PM_D5628: marker; 
+drift_584: drift, L = 0.449816; 
+BDS_BBS:DH_D5641_0: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5641_1: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5641_2: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5641_3: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5641_4: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+drift_585: drift, L = 0.370384; 
+BDS_BBS:BPM_D5653: bpm; 
+drift_586: drift, L = 0.044129; 
+BDS_BBS:PM_D5653: marker; 
+drift_587: drift, L = 0.347358; 
+BDS_BBS:DCH_D5657: orbtrim, I = 0.007, realpara = 1.0, tm_xkick = -6.132e-07; 
+BDS_BBS:DCV_D5657: orbtrim, I = 0.007, realpara = 1.0, tm_ykick = 6.132e-07; 
+drift_588: drift, L = 0.338129; 
+BDS_BBS:DH_D5668_0: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5668_1: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5668_2: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5668_3: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5668_4: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+drift_589: drift, L = 0.343965; 
+BDS_BBS:BPM_D5680: bpm; 
+drift_590: drift, L = 0.270037; 
+BDS_BBS:PM_D5683: marker; 
+drift_591: drift, L = 0.310698; 
+BDS_BBS:QV_D5688: quadrupole, B2 = -7.341717774999999, I = 87.365, L = 0.4506, aper = 0.07; 
+drift_592: drift, L = 0.2747; 
+BDS_BBS:DCH_D5693: orbtrim, I = 0.103, realpara = 1.0, tm_xkick = -9.0228e-06; 
+BDS_BBS:DCV_D5693: orbtrim, I = 9.609, realpara = 1.0, tm_ykick = 0.0008417484; 
+drift_593: drift, L = 0.2747; 
+BDS_BBS:QH_D5698: quadrupole, B2 = 12.352388685000001, I = 146.991, L = 0.4506, aper = 0.07; 
+drift_594: drift, L = 0.1747; 
+#BDS_BBS:S_D5703: sextupole, B3 = 27.52490128228354, L = 0.2, aper = 0.07, dstkick = 1.0, step = 10.0;
+BDS_BBS:S_D5703: drift, B3 = 36.55119, I = 2.15007, L = 0.2, aper = 0.07, dstkick = 1.0, step = 10.0; 
+drift_595: drift, L = 0.37951480000000004; 
+BDS_BBS:DH_D5731_0: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5731_1: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5731_2: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5731_3: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+BDS_BBS:DH_D5731_4: sbend, L = 0.330050488198, bg = 0.6, phi = 3.5, phi1 = 0.0, phi2 = 0.0; 
+drift_596: drift, L = 0.255853; 
+BDS_FFS:BPM_D5742: bpm; 
+drift_597: drift, L = 0.145282; 
+BDS_FFS:PM_D5743: marker; 
+drift_598: drift, L = 0.299265; 
+BDS_FFS:DCH_D5746: orbtrim, I = 14.12837, realpara = 1.0, tm_xkick = -0.00278328889; 
+BDS_FFS:DCV_D5746: orbtrim, I = -0.43051, realpara = 1.0, tm_ykick = -0.000182191832; 
+drift_599: drift, L = 0.1941; 
+BDS_FFS:QH_D5750: quadrupole, B2 = 12.03475038, I = 101.482, L = 0.261, aper = 0.025; 
+drift_600: drift, L = 0.489; 
+BDS_FFS:QV_D5757: quadrupole, B2 = -8.39237712, I = 70.768, L = 0.261, aper = 0.025; 
+drift_601: drift, L = 0.27309419999999995; 
+BDS_FFS:BPM_D5772: bpm; 
+drift_602: drift, L = 0.145282; 
+BDS_FFS:PM_D5774: marker; 
+drift_603: drift, L = 0.206184; 
+BDS_FFS:QH_D5777: quadrupole, B2 = 7.81448805, I = 65.895, L = 0.261, aper = 0.025; 
+drift_604: drift, L = 0.2695; 
+BDS_FFS:DCH_D5781: orbtrim, I = 0.0, realpara = 1.0, tm_xkick = 0.0; 
+BDS_FFS:DCV_D5781: orbtrim, I = 0.61835, realpara = 1.0, tm_ykick = 0.00026168572; 
+drift_605: drift, L = 0.2195; 
+BDS_FFS:QV_D5784: quadrupole, B2 = -8.884525620000002, I = 74.918, L = 0.261, aper = 0.025; 
+drift_606: drift, L = 0.180737; 
+BDS_FFS:GV_D5788: marker; 
+drift_607: drift, L = 0.123632; 
+BDS_FFS:BCM_D5789: marker; 
+drift_608: drift, L = 0.123499; 
+BDS_FFS:BPM_D5790: bpm; 
+drift_609: drift, L = 0.145282; 
+BDS_FFS:PM_D5792: marker; 
+drift_610: drift, L = 0.23193000000000003; 
+BDS_FFS:BPM_D5803: bpm; 
+drift_611: drift, L = 0.2367; 
+BDS_FFS:DCH_D5805: orbtrim, I = 0.101, realpara = 1.0, tm_xkick = -8.847600000000001e-06; 
+BDS_FFS:DCV_D5805: orbtrim, I = 0.029, realpara = 1.0, tm_ykick = 2.5404000000000003e-06; 
+drift_612: drift, L = 0.275063; 
+BDS_FFS:QH_D5810: quadrupole, B2 = 21.171267, I = 180.951, L = 0.26, aper = 0.025; 
+drift_613: drift, L = 0.24; 
+BDS_FFS:QV_D5815: quadrupole, B2 = -22.252128, I = 192.16, L = 0.4, aper = 0.025; 
+drift_614: drift, L = 0.12288; 
+BDS_FFS:BPM_D5818: bpm; 
+drift_615: drift, L = 0.11712; 
+BDS_FFS:QH_D5821: quadrupole, B2 = 18.084339000000003, I = 154.567, L = 0.26, aper = 0.025; 
+#drift_616: drift, L = 1.75;
+drift_616: drift, L = 0.116366; 
+BDS_FFS:CLLM_D5824: drift, L = 0.0738636; 
+#drift_617: drift, L = 1.559771;
+drift_617: drift, L = 0.1103716; 
+mirror_shield_2: drift, L = 0.0127; 
+drift_618: drift, L = 0.045896; 
+mirror: drift, L = 0.011; 
+drift_619: drift, L = 0.386459; 
+Target_Center: marker; 
+
+##### To BDS beam dump #####
+BDS_BTS:DH_D5579: drift, L = 1.814948;
+drift_1578: drift, L = 0.057404;
+drift_1579: drift, L = 0.008798;
+BDS_BTS:Q_D5599: quadrupole, B2 = 18.353568208923623, L = 0.25, aper = 0.025;
+drift_1580: drift, L = 0.75;
+BDS_BTS:Q_D5609: quadrupole, B2 = -8.157141426188277, L = 0.26, aper = 0.0375;
+drift_1581: drift, L = 3.727369/10;
+drift_1582: drift, L = 0.103502;
+BDS_BTS:BPM_D5649: bpm;
+drift_1583: drift, L = 0.296605;
+BDS_BTS:PM_D5652: marker;
+drift_1584: drift, L = 0.131216;
+drift_1585: drift, L = 0.751908;
+BDS_BTS:BD_D5661: marker;
+##### End BDS beam dump #####
+
+
+ls3bts: LINE = (
+LS3_WD06:BPM_D4699, drift_499, LS3_BTS:DCH_D4709, LS3_BTS:DCV_D4709, drift_500, LS3_BTS:QV_D4713,
+drift_501, LS3_BTS:QH_D4718, drift_502, LS3_BTS:GV_D4726, drift_503,
+LS3_BTS:DCH_D4750, LS3_BTS:DCV_D4750, drift_504, LS3_BTS:BPM_D4753, drift_505, LS3_BTS:QV_D4755,
+drift_506, LS3_BTS:QH_D4760, drift_507, LS3_BTS:BPM_D4769, drift_508,
+LS3_BTS:PM_D4771, drift_509, LS3_BTS:DCH_D4779, LS3_BTS:DCV_D4779, drift_510, LS3_BTS:QH_D4783,
+drift_511, LS3_BTS:PM_D4797, drift_512, LS3_BTS:QV_D4806, drift_513,
+LS3_BTS:PM_D4827, drift_514, LS3_BTS:DCH_D4841, LS3_BTS:DCV_D4841, drift_515, LS3_BTS:BPM_D4843,
+drift_516, LS3_BTS:QH_D4845, drift_517, LS3_BTS:PM_D4862, drift_518,
+LS3_BTS:QV_D4868, drift_519, LS3_BTS:GV_D4871, drift_520, LS3_BTS:BPM_D4886,
+drift_521, LS3_BTS:DCH_D4903, LS3_BTS:DCV_D4903, drift_522, LS3_BTS:QH_D4907, drift_523,
+LS3_BTS:QV_D4930, drift_524, LS3_BTS:DCH_D4965, LS3_BTS:DCV_D4965, drift_525, LS3_BTS:BPM_D4968,
+drift_526, LS3_BTS:QH_D4969, drift_527, LS3_BTS:QV_D4992, drift_528,
+LS3_BTS:BPM_D5010, drift_529, LS3_BTS:DCH_D5027, LS3_BTS:DCV_D5027, drift_530, LS3_BTS:QH_D5031,
+drift_531, LS3_BTS:QV_D5054, drift_532, LS3_BTS:DCH_D5089, LS3_BTS:DCV_D5089, drift_533,
+LS3_BTS:BPM_D5092, drift_534, LS3_BTS:QH_D5093, drift_535, LS3_BTS:QV_D5116,
+drift_536, LS3_BTS:BPM_D5134, drift_537, LS3_BTS:DCH_D5151, LS3_BTS:DCV_D5151, drift_538,
+LS3_BTS:QH_D5155, drift_539, LS3_BTS:QV_D5178, drift_540a, LS3_BTS:PM_D5197, drift_540b,
+LS3_BTS:DCH_D5213, LS3_BTS:DCV_D5213,
+drift_541, LS3_BTS:BPM_D5216, drift_542, LS3_BTS:QH_D5218, drift_543,
+LS3_BTS:QV_D5240, drift_544, LS3_BTS:BPM_D5259, drift_545a, LS3_BTS:PM_D5260, drift_545b,
+LS3_BTS:DCH_D5275, LS3_BTS:DCV_D5275,
+drift_546, LS3_BTS:QH_D5280, drift_547, LS3_BTS:QV_D5302,
+drift_548a, LS3_BTS:PM_D5321, drift_548b,
+LS3_BTS:DCH_D5337, LS3_BTS:DCV_D5337, drift_549, LS3_BTS:BPM_D5340, drift_550, LS3_BTS:QH_D5342,
+drift_551, LS3_BTS:QV_D5364, drift_552, LS3_BTS:BPM_D5381, drift_553,
+LS3_BTS:DCH_D5389, LS3_BTS:DCV_D5389, drift_554, LS3_BTS:QH_D5393, drift_555, LS3_BTS:QV_D5408,
+drift_556, LS3_BTS:DCH_D5428, LS3_BTS:DCV_D5428, drift_557, LS3_BTS:BPM_D5430, drift_558,
+LS3_BTS:QH_D5432, drift_559, LS3_BTS:QV_D5440, drift_560, LS3_BTS:BPM_D5445);
+
+bds: LINE = (
+drift_561, BDS_BTS:DCV_D5467, BDS_BTS:DCH_D5467, drift_562, BDS_BTS:QH_D5471, drift_563,
+BDS_BTS:QV_D5479, drift_564*5, BDS_BTS:DCH_D5496, BDS_BTS:DCV_D5496, drift_565, BDS_BTS:BPM_D5499,
+drift_566, BDS_BTS:QV_D5501, drift_567, BDS_BTS:QH_D5509, drift_568,
+BDS_BTS:BPM_D5513, drift_569, BDS_BTS:PM_D5514, drift_570, BDS_BTS:BCM_D5521,
+drift_571*10, BDS_BTS:GV_D5547, drift_572, BDS_BTS:QV_D5552, drift_573,
+BDS_BTS:QH_D5559, drift_574, BDS_BTS:DCH_D5563, BDS_BTS:DCV_D5563, drift_575, BDS_BTS:BPM_D5565,
+drift_576, BDS_BTS:PM_D5567, drift_577,
+BDS_BBS:DH_D5578_0, BDS_BBS:DH_D5578_1,
+BDS_BBS:DH_D5578_2, BDS_BBS:DH_D5578_3, BDS_BBS:DH_D5578_4, drift_578*5, BDS_BBS:S_D5606,
+drift_579, BDS_BBS:QH_D5611, drift_580, BDS_BBS:DCH_D5616, BDS_BBS:DCV_D5616, drift_581,
+BDS_BBS:QV_D5621, drift_582, BDS_BBS:BPM_D5625, drift_583, BDS_BBS:PM_D5628,
+drift_584, BDS_BBS:DH_D5641_0, BDS_BBS:DH_D5641_1, BDS_BBS:DH_D5641_2, BDS_BBS:DH_D5641_3,
+BDS_BBS:DH_D5641_4, drift_585, BDS_BBS:BPM_D5653, drift_586, BDS_BBS:PM_D5653,
+drift_587, BDS_BBS:DCH_D5657, BDS_BBS:DCV_D5657, drift_588, BDS_BBS:DH_D5668_0, BDS_BBS:DH_D5668_1,
+BDS_BBS:DH_D5668_2, BDS_BBS:DH_D5668_3, BDS_BBS:DH_D5668_4, drift_589, BDS_BBS:BPM_D5680,
+drift_590, BDS_BBS:PM_D5683, drift_591, BDS_BBS:QV_D5688, drift_592,
+BDS_BBS:DCH_D5693, BDS_BBS:DCV_D5693, drift_593, BDS_BBS:QH_D5698, drift_594, BDS_BBS:S_D5703,
+drift_595*5, BDS_BBS:DH_D5731_0, BDS_BBS:DH_D5731_1, BDS_BBS:DH_D5731_2, BDS_BBS:DH_D5731_3,
+BDS_BBS:DH_D5731_4, drift_596, BDS_FFS:BPM_D5742, drift_597, BDS_FFS:PM_D5743,
+drift_598, BDS_FFS:DCH_D5746, BDS_FFS:DCV_D5746, drift_599, BDS_FFS:QH_D5750, drift_600,
+BDS_FFS:QV_D5757, drift_601*5, BDS_FFS:BPM_D5772, drift_602, BDS_FFS:PM_D5774,
+drift_603, BDS_FFS:QH_D5777, drift_604, BDS_FFS:DCH_D5781, BDS_FFS:DCV_D5781, drift_605,
+BDS_FFS:QV_D5784, drift_606, BDS_FFS:GV_D5788, drift_607, BDS_FFS:BCM_D5789,
+drift_608, BDS_FFS:BPM_D5790, drift_609, BDS_FFS:PM_D5792, drift_610*5,
+BDS_FFS:BPM_D5803, drift_611, BDS_FFS:DCH_D5805, BDS_FFS:DCV_D5805, drift_612, BDS_FFS:QH_D5810,
+drift_613, BDS_FFS:QV_D5815, drift_614, BDS_FFS:BPM_D5818, drift_615,
+BDS_FFS:QH_D5821, drift_616, BDS_FFS:CLLM_D5824, drift_617*10, mirror_shield_2,
+drift_618, mirror, drift_619, Target_Center
+);
+
+
+cell: LINE = (S, ls3bts, bds);
+USE: cell;

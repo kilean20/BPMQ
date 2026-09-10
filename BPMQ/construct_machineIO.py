@@ -165,7 +165,7 @@ class _fetch_data_wrapper:
         self.fetch_data_base = fetch_data_base
         self.isOK_PVs = [] if isOK_PVs is None or test else isOK_PVs
         self.isOK_vals = np.array([] if isOK_vals is None or test else isOK_vals)
-        self.test = test
+        self._test = test
 
     def __call__(self, pvlist: List[str], 
                  time_span: float, 
@@ -174,11 +174,12 @@ class _fetch_data_wrapper:
         pvlist = list(set(pvlist))
         pvlist_expanded = pvlist + [pv for pv in self.isOK_PVs if pv not in pvlist]
         df = self.fetch_data_base(pvlist_expanded,time_span,sample_interval=sample_interval)
-        isOK_df = df[self.isOK_PVs]== self.isOK_vals
-        while not np.all(isOK_df):
-            logger.warning(f"notOK from {self.isOK_PVs} detected during fetch_data. Re-try in 5 sec... ")
-            time.sleep(5)
-            df = self.fetch_data_base(pvlist_expanded,time_span,sample_interval=sample_interval)
+        if not self._test:
+            isOK_df = df[self.isOK_PVs]== self.isOK_vals
+            while not np.all(isOK_df):
+                logger.warning(f"notOK from {self.isOK_PVs} detected during fetch_data. Re-try in 5 sec... ")
+                time.sleep(5)
+                df = self.fetch_data_base(pvlist_expanded,time_span,sample_interval=sample_interval)
         return df[pvlist]
     
 class _ensure_set_wrapper:
@@ -192,7 +193,7 @@ class _ensure_set_wrapper:
         self.ensure_set_base = ensure_set_base
         self.isOK_PVs = [] if isOK_PVs is None or test else isOK_PVs
         self.isOK_vals = np.array([] if isOK_vals is None or test else isOK_vals)
-        self.test = test
+        self._test = test
 
     def __call__(self, 
                 setpoint_pv: List[str], 
@@ -204,7 +205,7 @@ class _ensure_set_wrapper:
                 extra_monitors: Optional[List[str]] = None,
                 **kws) -> Union[str, Union[None, pd.DataFrame]]:
         
-        if self.test:
+        if self._test:
             return 'PutFinish', None
         extra_monitors = extra_monitors or []
         extra_monitors_expanded = list(set(extra_monitors + self.isOK_PVs))
@@ -349,27 +350,27 @@ class construct_machineIO(AbstractMachineIO):
                     sample_interval = sample_interval,
                     verbose = verbose,
                     )
-        self.test = test
+        self._test = test
         self.isOK_PVs = isOK_PVs
         self.isOK_vals = isOK_vals
         self._ensure_set = _ensure_set_wrapper(
             isOK_PVs = self.isOK_PVs, 
             isOK_vals = self.isOK_vals,
             ensure_set_base = epics_ensure_set if use_epics and epics_imported else phantasy_ensure_set if phantasy_imported else None,
-            test = self.test,
+            test = self._test,
         )
         self._fetch_data = _fetch_data_wrapper(
             isOK_PVs = self.isOK_PVs, 
             isOK_vals = self.isOK_vals,
             fetch_data_base = epics_fetch_data if use_epics and epics_imported else phantasy_fetch_data if phantasy_imported else None,
-            test = self.test,
+            test = self._test,
         )
         
     def _caget(self,pvname):
         if epics_imported:
             f = epics_caget(pvname)
         else:
-            if self.test:
+            if self._test:
                 warn("EPICS is not imported. caget will return fake zero")
                 f = 0
             else:
@@ -377,7 +378,7 @@ class construct_machineIO(AbstractMachineIO):
         return f
             
     def _caput(self, pvname: str, value: Union[float, int]):
-        if self.test:
+        if self._test:
             pass
         elif epics_imported:
             epics_caput(pvname, value)

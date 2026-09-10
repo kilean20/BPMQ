@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 # Local Libraries
 from .torch_helper import run_torch_optimizer
 from .construct_machineIO import Evaluator_wBPMQ
+from .construct_machineIO import phantasy_fetch_data_orig as fetch_data
+from .LinearControl import LinearControl
 from .machine_portal_helper import get_MPelem_from_PVnames
 from .utils import calculate_Brho, calculate_betagamma, sort_by_Dnum, calculate_mismatch_factor, calculate_MMD4D, \
                    plot_beam_ellipse_from_cov, plot_beam_ellipse, get_ISAAC_preset, proximal_ordered_init_sampler, select_n_most_distant_mmd4d_covs
@@ -249,73 +251,6 @@ def covar2cs(xcov, ycov, bg=_bg):
     return torch.stack([xalpha, xbeta, xnemit, yalpha, ybeta, ynemit], dim=1)
     
     
-def _mmd4d_sq_batch_torch(
-    xcovs: torch.Tensor,
-    ycovs: torch.Tensor,
-    xcov_prior: torch.Tensor,
-    ycov_prior: torch.Tensor,
-) -> torch.Tensor:
-    """
-    Closed-form, differentiable, O(batch)-cost  MMD4D²  between each
-    particle's reconstructed beam and the prior beam.
-
-    Returns MMD²  (squared MMD, **without** the final sqrt).
-
-    Why MMD² and not sqrt(MMD²)?
-    ─────────────────────────────
-    At the prior (xcovs ≈ xcov_prior), mmd2 = 0 and its gradient is exactly
-    0 — the minimum of a smooth non-negative function.  Taking sqrt(mmd2)
-    would evaluate 1/(2·mmd) in the backward pass; at mmd=0 this is +∞,
-    producing NaN gradients.  Using mmd2 directly avoids the singularity.
-    Near the prior, mmd2 ≈ C·‖ΔΣ‖² (locally quadratic), giving gradient
-    behaviour analogous to the L2-in-noise-space prior it replaces.
-
-    Kernel: k(z,w) = exp(-½ (z-w)ᵀ S (z-w)),  S = Σ_prior⁻¹.
-    Factored over the decoupled x and y 2D subspaces (exact for decoupled beams).
-
-    MMD² formula for zero-mean Gaussians p_i = N(0, Σ_i), p₀ = N(0, Σ_prior):
-        mmd2_i = 1/√det(I+2 S_x Σ_xi)·det(I+2 S_y Σ_yi)   ← E_{pi,pi}[k]
-               + 1/√det(I+2 S_x Σ_x0)·det(I+2 S_y Σ_y0)   ← E_{p0,p0}[k]
-               - 2/√det(I+S_x(Σ_xi+Σ_x0))·det(I+S_y(Σ_yi+Σ_y0))  ← cross
-
-    Args
-    ----
-    xcovs      : (batch, 2, 2) — per-particle x phase-space covariance
-    ycovs      : (batch, 2, 2) — per-particle y phase-space covariance
-    xcov_prior : (2, 2)        — prior x covariance  (sets kernel bandwidth)
-    ycov_prior : (2, 2)        — prior y covariance
-
-    Returns
-    -------
-    mmd2 : (batch,) ∈ [0, ~1/3], fully differentiable w.r.t. xcovs / ycovs
-    """
-    I2  = torch.eye(2, dtype=xcovs.dtype, device=xcovs.device)
-    S_x = torch.linalg.inv(xcov_prior)          # (2, 2)
-    S_y = torch.linalg.inv(ycov_prior)
-    Sx  = S_x.unsqueeze(0)                       # (1, 2, 2)  broadcasts over batch
-    Sy  = S_y.unsqueeze(0)
-    xp  = xcov_prior.unsqueeze(0)                # (1, 2, 2)
-    yp  = ycov_prior.unsqueeze(0)
-
-    # E_{p_i, p_i}[k]  — one value per particle
-    det1 = (torch.linalg.det(I2 + 2.0 * (Sx @ xcovs)) *      # (batch,)
-            torch.linalg.det(I2 + 2.0 * (Sy @ ycovs)))
-
-    # E_{p_prior, p_prior}[k]  — scalar, broadcast over batch
-    det2 = (torch.linalg.det(I2 + 2.0 * S_x @ xcov_prior) *
-            torch.linalg.det(I2 + 2.0 * S_y @ ycov_prior))
-
-    # -2 · E_{p_i, p_prior}[k]  — one value per particle
-    det3 = (torch.linalg.det(I2 + Sx @ xcovs + Sx @ xp) *    # (batch,)
-            torch.linalg.det(I2 + Sy @ ycovs + Sy @ yp))
-
-    mmd2 = 1.0 / det1.sqrt() + 1.0 / det2.sqrt() - 2.0 / det3.sqrt()
-
-    # Clamp: numerical noise can push mmd2 slightly negative when
-    # xcovs ≈ xcov_prior (true MMD² = 0).
-    return mmd2.clamp(min=0.0)   # (batch,)
-
-
 def drift_maps_2x2(L,**kwarg):
     M = torch.tensor([[1, L], [0, 1]],dtype=_dtype)
     return [M,M]
@@ -715,12 +650,11 @@ class EnvelopeEnsembleModel:
         """
         cs_prior_noise : torch.Tensor | None, shape (1, 6) or (6,)
             If given, adds a prior-anchoring regularisation term
-                regloss_prior = MMD4D²(xcov_i, ycov_i | xcov_prior, ycov_prior) / _mmd4d_norm
+                regloss_prior = mean_over_6_dims( (noise[:, :6] - cs_prior_noise)^2 )
             to the returned loss dict.
 
-            Scaling: normalised by _mmd4d_norm = E[MMD4D² | N(0,I)] so that
-            E[regloss_prior] = 1 at initialisation, matching fitloss_bpmQ
-            (normalised to BPMQ tolerance ~0.5 mm²).
+            Scaling: expected value under N(cs_prior_noise, I) is ~1, which is
+            comparable to fitloss_bpmQ (normalised to BPMQ tolerance ~0.5 mm²).
             Multiply by prior_weight in the loss_weights dict to control strength.
         """
         '''
@@ -778,49 +712,7 @@ class EnvelopeEnsembleModel:
                     PM_llMaps.append(self.latmap.get_expanded_maps_ibtw(i_apers_wPM, batch_size))
                 else:
                     PM_llMaps.append(self.latmap.get_expanded_maps_ibtw([0]+i_apers_wPM, batch_size))
-
-        # ── MMD4D² prior setup ────────────────────────────────────────────────
-        # Pre-compute the prior beam covariance and the normalisation constant
-        # _mmd4d_norm = E[mmd2] under the initial particle cloud N(0,I).
-        #
-        # Normalising regloss_prior by _mmd4d_norm ensures:
-        #   E[regloss_prior] = 1  at initialisation  (x0 ~ N(0,I))
-        # matching fitloss_bpmQ (normalised by BPMQ tolerance ~ 0.5 mm²) and
-        # the old L2-in-noise-space prior (E = 1 by construction).
-        # prior_weight therefore keeps the same intuitive meaning:
-        #   prior_weight = 1  →  prior and data-fit contribute equally.
-        #
-        # Why E[mmd2] and not std(sqrt(mmd2))?
-        #   Both fitloss_bpmQ and the old L2 prior have E=1.  Using std of
-        #   sqrt(mmd2) as the divisor would anchor the variance, not the mean,
-        #   giving E ≈ mean/std ≈ 3.9 — a 4× scale error vs the other losses.
-        _xcov_prior_t = _ycov_prior_t = _mmd4d_norm = None
-        if cs_prior_noise is not None:
-            with torch.no_grad():
-                # Prior beam covariance: noise=0 → cs_ref via noise2covar
-                _xc, _yc = noise2covar(
-                    torch.zeros(1, 6, dtype=self.dtype),
-                    *self.cs_ref, bg=self.bg
-                )
-                _xcov_prior_t = _xc.squeeze(0)    # (2,2)
-                _ycov_prior_t = _yc.squeeze(0)    # (2,2)
-
-                # Calibration: 512 particles from N(0,I) — same distribution
-                # as the initial particle cloud — compute their MMD² to prior,
-                # then take the mean as the normalisation constant.
-                _N_CAL = 512
-                _z_cal = torch.randn(_N_CAL, 6, dtype=self.dtype)
-                _xc_cal, _yc_cal = noise2covar(
-                    _z_cal, *self.cs_ref, bg=self.bg
-                )
-                _mmd2_cal = _mmd4d_sq_batch_torch(
-                    _xc_cal, _yc_cal, _xcov_prior_t, _ycov_prior_t
-                )
-                _mmd4d_norm = _mmd2_cal.mean().clamp(min=1e-10)
-                # Scale by the variance of the initial distribution instead
-                # _mmd4d_norm = _mmd2_cal.var().clamp(min=1e-10)
-        # ─────────────────────────────────────────────────────────────────────
-
+        
         def loss_fun(x):
             '''
             x.shape : (batch_size, 6+n_scan*n_bpm + 2*n_pm_scan*n_pm)
@@ -886,24 +778,14 @@ class EnvelopeEnsembleModel:
                 regloss_emitprior = (torch.relu(torch.abs(xnemit_sim_ratio - 1) - 0.2)**2 +
                                      torch.relu(torch.abs(ynemit_sim_ratio - 1) - 0.2)**2)
             
-            # Prior-anchoring regularisation via MMD4D².
-            #
-            # Penalises each particle for having a beam distribution
-            # distinguishable from the prior beam in 4D phase space.
-            # Uses MMD² (not sqrt) to avoid the 0/0 gradient singularity
-            # at the prior: d/dx sqrt(0) = 1/(2·0) = ∞.
-            # Divided by _mmd4d_norm = E[mmd2 | N(0,I)] so that
-            # E[regloss_prior] = 1 at initialisation, matching fitloss_bpmQ.
+            # Prior-anchoring regularisation.
+            # regloss_prior = mean_j( (noise_j - prior_j)^2 ) over the 6 CS noise dims.
+            # When noise ~ N(prior, I), E[regloss_prior] = 1, which is comparable
+            # to a fitloss_bpmQ of ~1 (BPMQ error ~ tolerance ~ 0.5 mm²).
             regloss_prior = None
             if cs_prior_noise is not None:
-                # xcovs, ycovs are already computed above in loss_fun
-                regloss_prior = (
-                    _mmd4d_sq_batch_torch(
-                        xcovs, ycovs,
-                        _xcov_prior_t, _ycov_prior_t,
-                    )
-                    / _mmd4d_norm    # → E[loss] = 1 at N(0,I) initialisation
-                )
+                diff = x[:, :6] - cs_prior_noise           # (batch_size, 6)
+                regloss_prior = torch.mean(diff**2, dim=1)  # (batch_size,)
 
             # make each regloss > 0 and < 1 for tolerable region to work with torch_helper.run_torch_optimizer
             return {'fitloss_bpmQ': fitloss_bpmQ,
@@ -978,10 +860,10 @@ class EnvelopeEnsembleModel:
         # ── Prior anchoring ───────────────────────────────────────────────────
         # If a CS prior is provided we re-anchor the noise parameterisation to
         # that prior by updating self.cs_ref.  After this update noise=0 maps
-        # exactly to cs_prior (via noise2cs), so the prior regularisation term
-        #   regloss_prior = MMD4D²(beam_i | prior) / E[MMD4D² | N(0,I)]
-        # has expected value ~1 at initialisation — the same order of magnitude
-        # as fitloss_bpmQ (normalised to BPMQ tolerance ~0.5 mm²).
+        # exactly to cs_prior (via noise2cs), so the prior-regularisation term
+        #   regloss_prior = mean_j( noise_j^2 )
+        # has expected value ~1 under N(0,I) — the same order of magnitude as
+        # fitloss_bpmQ (normalised to BPMQ tolerance ~0.5 mm²).
         if cs_prior is not None:
             if not isinstance(cs_prior, torch.Tensor):
                 cs_prior = torch.tensor(cs_prior, dtype=self.dtype)
@@ -1117,7 +999,7 @@ class EnvelopeEnsembleModel:
         for i in range(num_restarts-1):
             print("irestart",irestart)
             mask = combined_losses < 0.05*(1+np.log(irestart+1))
-            if torch.sum(mask) >= batch_size:
+            if torch.sum(mask) > batch_size:
                 break
             irestart += 1
 
@@ -1235,15 +1117,9 @@ class EnvelopeEnsembleModel:
             l_xvars, l_yvars = l_xcovs[:,:,0,0], l_ycovs[:,:,0,0]
             BPMQ_sim = l_xvars[arg_iBPMQ,:]*1e6 - l_yvars[arg_iBPMQ,:]*1e6  # (mm^2)
             
-            # Acquisition score: sqrt(mean of per-BPM variances across the ensemble).
-            # This equals the RMS of per-BPM stds and is a better approximation
-            # of information gain (mutual information) than mean(std):
-            #   I(θ; y | x) ∝ log det Cov(y|x)  ≈  log mean_bpm Var(BPMQ_sim)
-            # Maximising score_S is equivalent to maximising this surrogate.
-            # Normalised so score_S ≈ 0.5 mm² corresponds to BPMQ tolerance
-            # (same convention as before: loss=0.5 → convergence).
-            score_S = torch.sqrt(torch.mean(BPMQ_sim.var(dim=-1)))
-            loss = 1.0 - score_S * 2
+            # maximize variance of BPMQ for best resolving solution.   torch.tensor.max(axis=..) gives tuple of max and argmax
+            # loss_BPMQ_var = -torch.mean(BPMQ_sim.max(axis=1).values-BPMQ_sim.min(axis=1).values)  
+            loss = 1 -torch.mean(BPMQ_sim.std(axis=-1))*2 # use normalization factor of BPMQ error~0.5 mm^2
             regloss_beamloss = self._calculate_beam_loss(apers_wBPMQ,
                                                          l_xvars.unsqueeze(0),
                                                          l_yvars.unsqueeze(0)
@@ -1696,6 +1572,7 @@ class BPMQscan:
     ynemit_target: Optional[float] = None
     machineIO: Optional[Any] = None
     set_manually: bool = True
+    correct_traj_each_iter: bool = False
     wait_before_measure: bool = False
     train_BPMQtol: Optional[List[float]] = None
     batch_size: int = 8
@@ -1726,7 +1603,9 @@ class BPMQscan:
         self._validate_PVs()
         self._initialize_attributes()
         self._setup_quads_evaluator()
-        
+        if self.machineIO and self.correct_traj_each_iter:
+            self._setup_corrs_evaluator()
+            
         self.llB2_penal = None
 
         # Structured rejection log — one entry per rejected candidate.
@@ -1881,6 +1760,38 @@ class BPMQscan:
                 set_manually = self.set_manually
             )
 
+            if self.correct_traj_each_iter:
+                self._setup_corrs_evaluator()
+
+    def _setup_corrs_evaluator(self):
+        """Sets up the trajectory machine evaluator if applicable."""
+        self.corrs_evaluator = Evaluator_wBPMQ(
+            self.machineIO,
+            input_CSETs = self.corrs_input_CSETs,
+            input_RDs   = self.corrs_input_RDs,
+            input_tols  = self.corrs_tol_curr,
+            output_RDs  = self.quads_input_CSETs + self.quads_input_RDs,
+            BPM_names   = self.BPM_names,
+            model_type = self.BPMQ_model_type,
+            ensure_set_kwargs = None,
+            fetch_data_kwargs = None,
+            set_manually=self.set_manually
+        )            
+
+    def _setup_traj_controller(self):
+        x0, _ = fetch_data(self.corrs_evaluator.input_CSETs,0.1)
+        self.traj_controller = LinearControl(
+                                x0  = x0,
+                                dx  = self.corrs_step_curr,
+                                xmin= self.corrs_min_curr,
+                                xmax= self.corrs_max_curr,
+                                goal= np.zeros(len(self.BPM_names)),
+                                goal_tol=np.ones(len(self.BPM_names)),
+                                evaluator = self.corrs_evaluator,
+                                input_RDs = self.corrs_input_RDs,
+                                output_RDs = self.corrs_output_RDs)
+                                
+                                
     def get_data(self):
         data = {
             "E_MeV_u": self.E_MeV_u,  # Use 'self' to reference instance attributes
@@ -1891,6 +1802,7 @@ class BPMQscan:
             "BPM_names": self.BPM_names,
             "lattice_dicts": self.lattice_dicts,
             "bootstrap": self.bootstrap,
+            "correct_traj_each_iter": self.correct_traj_each_iter,
             "xnemit_target": self.xnemit_target,
             "ynemit_target": self.ynemit_target,
             "reconstructed_cs_loc":self.lattice_dicts[0]["name"],
@@ -2176,6 +2088,13 @@ class BPMQscan:
                 self.evaluated_dfs.append(df)
                 if self.machineIO is not None:
                     self.init_BPM_MAGs = 0.3*self.init_BPM_MAGs + 0.7*BPM_MAGs
+#             if self.correct_traj_each_iter and self.machineIO is not None:
+#                 self._setup_traj_controller()
+#                 self.traj_controller.run()
+#                 self.evaluated_dfs[-1]=ctr.eval_df
+#                 df = ctr.eval_df[-1]
+#                 BPM_MAGs = df[self.BPM_MAG_PVs]
+#                 is_beamloss = np.any(BPM_MAGs < 0.95*self.init_BPM_MAGs)
             # use readback instead of set
             if self.machineIO is not None:
                 lB2 = [self.mp_quads_to_scan[i].convert(df[qname+':I_RD'].mean(),from_field='I',to_field='B2') 
@@ -2480,8 +2399,8 @@ class BPMQscan:
              dont_train_model=False):
         candidate_lB2, query_loss = self.query_candidate()
 
-        # query_loss  =  1 - sqrt(mean(var(BPMQ_ensemble))) * 2
-        # → discriminability  =  RMS-std achievable by best quad setting [mm²]
+        # query_loss  =  1 - mean(std(BPMQ_ensemble)) * 2
+        # → discriminability  =  std achievable by best quad setting [mm²]
         discriminability = float((1.0 - float(query_loss)) / 2.0)
         self.discriminability_history.append(discriminability)
 
@@ -2497,8 +2416,8 @@ class BPMQscan:
                              _record_state=False)
             self._record_convergence_state()
 
-        # Converged when best achievable RMS-std ≤ 0.25 mm²
-        # (query_loss ≥ 0.5  ←→  sqrt(mean(var(BPMQ))) ≤ 0.25 mm²)
+        # Converged when best achievable BPMQ std ≤ 0.25 mm²
+        # (query_loss ≥ 0.5  ←→  discriminability ≤ 0.25)
         is_converged = (query_loss >= 0.5)
         return is_converged
 

@@ -1,0 +1,56 @@
+# CS Inference Tool - Default Configuration
+# Machine IO parameters (used when USE_REAL_MACHINE = true)
+
+machine_io:
+  check_chopper_blocking: true
+  fetch_data_time_span: 5
+  ensure_set_timewait_after_ramp: 0.5
+  fetch_data_resample_rate: 0.2
+  verbose: true
+
+# BPMQ model configuration
+bpmq:
+  model_type: "TIS161_GP"
+
+# Inference parameters
+inference:
+  n_init: 3
+  n_qScan: 6
+  do_pmScan: false
+  xnemit_prior: null          # null means None; can specify value in m*rad
+  ynemit_prior: null
+
+# Lattice configuration
+lattice:
+  FLAME_file: "test_LS3_Target.lat"
+  from_elem: null             # null = start from beginning
+  to_elem: "BDS_BTS:PM_D5567"
+
+# Quadrupole scan configuration
+quads:
+  quads_to_scan: null         # null = use first 2 from lattice
+  quads_max_curr: null        # null = scan_init_vals + 45 A
+  quads_min_curr: null        # null = max(scan_init_vals - 45, 0.1) A
+  quads_init_rel_size: null   # null = 0.2 (20% of operating point)
+
+# Virtual machine parameters (used when USE_REAL_MACHINE = false)
+virtual:
+  E_MeV_u: 130
+  mass_number: 124
+  charge_number: 49
+  beamQ_err: 1.0              # mm^2 - random BPM noise
+  beamQ_model_err: 0.5        # mm^2 - systematic VD model bias
+
+# Model training hyperparameters
+model:
+  batch_size: 8
+  n_batch_padding_factor: 16
+  num_restarts: 5
+  bootstrap: false
+  sample_model_err: true
+  fit_err: true
+
+# Plotting
+plotting:
+  plot_history: true          # internal history plots during training
+  plot_ellipse: true          # beam ellipse visualization
